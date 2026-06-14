@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0e1a" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
 <title>World Cup 2026 — Live Scores &amp; Schedule (Pacific Time)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 <style>
@@ -23,9 +23,9 @@
       radial-gradient(900px 500px at -10% 10%, rgba(233,196,106,.08), transparent 55%),
       linear-gradient(180deg,#0a0e1a 0%, #0b1020 55%, #090d18 100%);
     min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:48px}
-  .wrap{max-width:780px;margin:0 auto;padding:0 14px}
+  .wrap{max-width:780px;margin:0 auto;padding:0 calc(14px + env(safe-area-inset-right)) 0 calc(14px + env(safe-area-inset-left))}
 
-  header.hero{text-align:center;padding:26px 14px 10px}
+  header.hero{text-align:center;padding:calc(22px + env(safe-area-inset-top)) 14px 10px}
   .trophy{font-size:40px;line-height:1;filter:drop-shadow(0 4px 10px rgba(233,196,106,.45))}
   .hero h1{margin:8px 0 2px;font-size:25px;font-weight:800;letter-spacing:-.5px;
     background:linear-gradient(90deg,#fff,var(--gold2) 60%,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -36,9 +36,12 @@
   .apibar .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
   .apibar.err .live-dot{background:var(--red);box-shadow:0 0 8px var(--red)}
   .apibar .refresh{cursor:pointer;color:var(--gold);font-weight:700;background:none;border:1px solid var(--card-brd);padding:4px 9px;border-radius:999px}
+  .tzrow{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:9px;font-size:12px;color:var(--muted)}
+  .tzrow select{background:var(--card);color:var(--txt);border:1px solid var(--card-brd);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;outline:none;-webkit-appearance:none;appearance:none}
+  .tzrow .abbr{color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums}
 
   .sticky{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(10,14,26,.96),rgba(10,14,26,.86));
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--card-brd);padding:8px 0 9px}
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--card-brd);padding:calc(8px + env(safe-area-inset-top)) 0 9px}
   .tabs{display:flex;gap:5px;justify-content:center;padding:0 10px}
   .tab{flex:1;text-align:center;padding:9px 4px;border-radius:11px;font-weight:700;font-size:12.5px;
     background:var(--card);border:1px solid var(--card-brd);color:var(--muted);cursor:pointer;transition:.18s}
@@ -178,6 +181,7 @@
   <div class="sub">Live scores · goals · tables · bracket — all times Pacific (PT)</div>
   <div class="hosts"><span>🇨🇦 Canada</span><span>🇲🇽 Mexico</span><span>🇺🇸 USA</span></div>
   <div class="apibar" id="apibar"><span class="live-dot"></span><span id="apiStatus">Loading scores…</span><button class="refresh" id="refreshBtn">↻ Refresh</button></div>
+  <div class="tzrow">🕒 Times in <select id="tzSel"></select><span class="abbr" id="tzAbbr"></span></div>
 </header>
 
 <div class="sticky">
@@ -210,7 +214,7 @@
 
   <footer>
     Live data via API-Football (through your Cloudflare proxy) with TheSportsDB fallback.<br/>
-    Tap any match to see goal scorers. Times in Pacific (PDT, UTC−7). ⚽
+    Tap any match to see goal scorers. Times auto-adjust to your timezone. ⚽
   </footer>
 </div>
 
@@ -339,10 +343,18 @@ const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const fmtDate=d=>{const x=new Date(d+"T00:00:00");return DOW[x.getDay()]+", "+MON[x.getMonth()]+" "+x.getDate();};
 const fmt12=t=>{let[h,m]=t.split(":").map(Number);const ap=h>=12?"PM":"AM";h=h%12||12;return h+":"+String(m).padStart(2,"0")+" "+ap;};
-const ptEpoch=(d,t)=>new Date(d+"T"+t+":00-07:00").getTime();
+const ptEpoch=(d,t)=>new Date(d+"T"+t+":00-07:00").getTime(); // fixtures are stored in Pacific; this gives the absolute moment
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const todayStr=()=>{const p=new Date(new Date().toLocaleString("en-US",{timeZone:"America/Los_Angeles"}));
-  return p.getFullYear()+"-"+String(p.getMonth()+1).padStart(2,"0")+"-"+String(p.getDate()).padStart(2,"0");};
+
+// ---- timezone: everything renders in the viewer's chosen zone (default = their device zone) ----
+const LOCAL_TZ=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"America/Los_Angeles";}catch(e){return "America/Los_Angeles";}})();
+let chosenTZ=(()=>{try{return localStorage.getItem("wc_tz")||"auto";}catch(e){return "auto";}})();
+const activeTZ=()=>chosenTZ==="auto"?LOCAL_TZ:chosenTZ;
+const timeInTZ =ep=>new Intl.DateTimeFormat("en-US",{timeZone:activeTZ(),hour:"numeric",minute:"2-digit"}).format(ep);
+const dateKeyTZ =ep=>new Intl.DateTimeFormat("en-CA",{timeZone:activeTZ(),year:"numeric",month:"2-digit",day:"2-digit"}).format(ep);
+const dateLabelTZ=ep=>new Intl.DateTimeFormat("en-US",{timeZone:activeTZ(),weekday:"short",month:"short",day:"numeric"}).format(ep);
+function tzAbbr(){try{const p=new Intl.DateTimeFormat("en-US",{timeZone:activeTZ(),timeZoneName:"short"}).formatToParts(Date.now());const z=p.find(x=>x.type==="timeZoneName");return z?z.value:"";}catch(e){return "";}}
+const todayStr=()=>dateKeyTZ(Date.now());
 
 function norm(s){
   s=(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z]/g,"");
@@ -443,8 +455,7 @@ function setApiStatus(ok,src){
   const bar=document.getElementById("apibar"), el=document.getElementById("apiStatus");
   bar.classList.toggle("err",!ok);
   if(ok){
-    const t=new Date().toLocaleTimeString("en-US",{timeZone:"America/Los_Angeles",hour:"numeric",minute:"2-digit"});
-    el.textContent=`Live · ${src} · updated ${t} PT`;
+    el.textContent=`Live · ${src} · updated ${timeInTZ(Date.now())} ${tzAbbr()}`;
   } else el.textContent="Scores offline — showing schedule";
 }
 
@@ -513,7 +524,7 @@ function renderSched(){
   document.getElementById("cNext").textContent=nNext;
   document.getElementById("cPast").textContent=nPast;
 
-  let list=M.map((m,i)=>({m,i,f:fixtureState(m,now)}));
+  let list=M.map((m,i)=>({m,i,ep:ptEpoch(m[0],m[1]),f:fixtureState(m,now)}));
   if(state.group!=="ALL") list=list.filter(x=>x.m[2]===state.group);
   if(state.q){const q=state.q.toLowerCase();list=list.filter(x=>x.m[3].toLowerCase().includes(q)||x.m[4].toLowerCase().includes(q));}
   if(state.filter==="next") list=list.filter(x=>x.f.s!=="past");
@@ -526,19 +537,20 @@ function renderSched(){
     el.innerHTML=`<div class="empty">${msg}</div>`;return;
   }
   let nextEp=Infinity;
-  list.forEach(x=>{if(x.f.s==="upcoming"){const e=ptEpoch(x.m[0],x.m[1]);if(e<nextEp)nextEp=e;}});
+  list.forEach(x=>{if(x.f.s==="upcoming"&&x.ep<nextEp)nextEp=x.ep;});
   const desc=state.filter==="past";
-  list.sort((A,B)=>{const ea=ptEpoch(A.m[0],A.m[1]),eb=ptEpoch(B.m[0],B.m[1]);return desc?eb-ea:ea-eb;});
+  list.sort((A,B)=>desc?B.ep-A.ep:A.ep-B.ep);
 
-  const byDay={}; list.forEach(x=>{(byDay[x.m[0]]=byDay[x.m[0]]||[]).push(x);});
+  const byDay={}; list.forEach(x=>{const k=dateKeyTZ(x.ep);(byDay[k]=byDay[k]||[]).push(x);});
   const days=Object.keys(byDay).sort((a,b)=>desc?b.localeCompare(a):a.localeCompare(b));
 
   let html="";
   days.forEach(d=>{
     const isToday=d===today;
-    html+=`<div class="day"><div class="day-h${isToday?" today":""}"><span class="dnum">${fmtDate(d)}</span>${isToday?'<span class="badge">TODAY</span>':""}<span class="line"></span><span style="font-size:11px;color:var(--muted);font-weight:600">${byDay[d].length} ${byDay[d].length>1?"matches":"match"}</span></div>`;
-    byDay[d].sort((a,b)=>desc?b.m[1].localeCompare(a.m[1]):a.m[1].localeCompare(b.m[1])).forEach(x=>{
-      const m=x.m,f=x.f,a=f.a,ep=ptEpoch(m[0],m[1]);
+    const dayLabel=dateLabelTZ(byDay[d][0].ep);
+    html+=`<div class="day"><div class="day-h${isToday?" today":""}"><span class="dnum">${dayLabel}</span>${isToday?'<span class="badge">TODAY</span>':""}<span class="line"></span><span style="font-size:11px;color:var(--muted);font-weight:600">${byDay[d].length} ${byDay[d].length>1?"matches":"match"}</span></div>`;
+    byDay[d].sort((a,b)=>desc?b.ep-a.ep:a.ep-b.ep).forEach(x=>{
+      const m=x.m,f=x.f,a=f.a,ep=x.ep;
       const live=f.s==="live", isNext=f.s==="upcoming"&&ep===nextEp;
       const cls=live?" live":(isNext?" next":"");
       let hs=null,as=null,hWon=false,aWon=false,hLost=false,aLost=false;
@@ -548,7 +560,7 @@ function renderSched(){
       if(live){const min=a&&a.elapsed?`${a.elapsed}'`:"LIVE";metaMid=`<span class="st live pulse">● ${min}</span>`;}
       else if(f.s==="past"&&hs!=null) metaMid=`<span class="st ft">FULL TIME</span>`;
       else if(f.s==="past") metaMid=`<span class="st ft">ENDED</span>`;
-      else metaMid=`<span class="tm">${fmt12(m[1])}</span>`;
+      else metaMid=`<span class="tm">${timeInTZ(ep)}</span>`;
       const showGoals=(live||f.s==="past")&&hs!=null&&usingAF;
       const isOpen=openCards[x.i]||live; // live auto-open
       html+=`<div class="match${cls}${isOpen&&showGoals?" open":""}" data-i="${x.i}"${a&&a.id?` data-fid="${a.id}"`:""}>
@@ -655,7 +667,7 @@ function renderBracket(){
             <div class="kt ${hWin?'win':aWin?'lose':''}"><span class="fl">${fl(fx.home)}</span>${esc(fx.home)}${has?`<span class="ks">${hs}</span>`:""}</div>
             <div class="kt ${aWin?'win':hWin?'lose':''}"><span class="fl">${fl(fx.away)}</span>${esc(fx.away)}${has?`<span class="ks">${as}</span>`:""}</div>
           </div>
-          <div class="info"><div class="d">${fmtDate(new Date(fx.ep).toISOString().slice(0,10))}</div>${stTxt}</div>
+          <div class="info"><div class="d">${dateLabelTZ(fx.ep)}</div>${stTxt}</div>
         </div>`;
       });
     } else {
@@ -733,6 +745,24 @@ document.getElementById("predT").addEventListener("click",function(){
   document.body.classList.toggle("show-pred",on);this.classList.toggle("on",on);
 });
 document.getElementById("refreshBtn").addEventListener("click",loadScores);
+// timezone selector (default auto-detects the device timezone)
+(function initTZ(){
+  const sel=document.getElementById("tzSel");
+  const opts=[["auto","Your time"],["America/Los_Angeles","Pacific"],["America/Denver","Mountain"],
+    ["America/Chicago","Central"],["America/New_York","Eastern"],["America/Mexico_City","Mexico City"],
+    ["America/Toronto","Toronto"],["Europe/London","UK"],["Europe/Paris","Central Europe"],
+    ["Asia/Tehran","Tehran"],["Asia/Dubai","Dubai"],["Asia/Tokyo","Tokyo"],["UTC","UTC"]];
+  sel.innerHTML=opts.map(o=>`<option value="${o[0]}">${o[1]}${o[0]==="auto"?" ("+LOCAL_TZ.split("/").pop().replace(/_/g," ")+")":""}</option>`).join("");
+  sel.value=chosenTZ;
+  document.getElementById("tzAbbr").textContent=tzAbbr();
+  sel.addEventListener("change",()=>{
+    chosenTZ=sel.value;
+    try{localStorage.setItem("wc_tz",chosenTZ);}catch(e){}
+    document.getElementById("tzAbbr").textContent=tzAbbr();
+    renderAll(); if(state.view==="picks") renderPred();
+    setApiStatus(apiLoaded,usingAF?"API-Football":"TheSportsDB");
+  });
+})();
 // tap a match → toggle scorers (lazy-load events)
 document.getElementById("sched").addEventListener("click",async e=>{
   const card=e.target.closest(".match");if(!card)return;
