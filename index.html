@@ -31,6 +31,7 @@
 
   header.hero{text-align:center;padding:calc(22px + env(safe-area-inset-top)) 14px 10px}
   .trophy{font-size:40px;line-height:1;filter:drop-shadow(0 4px 10px rgba(233,196,106,.45))}
+  .brand-img{width:92px;height:92px;border-radius:22px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 0 1px var(--card-brd);display:inline-block}
   .hero h1{margin:8px 0 2px;font-size:25px;font-weight:800;letter-spacing:-.5px;
     background:linear-gradient(90deg,#fff,var(--gold2) 60%,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
   .hero .sub{color:var(--muted);font-size:13px}
@@ -180,7 +181,8 @@
 </head>
 <body class="show-pred v-sched">
 <header class="hero">
-  <div class="trophy">🏆</div>
+  <img class="brand-img" src="icon.png" alt="World Cup 2026" onerror="this.style.display='none';document.getElementById('brandFb').style.display='inline-block';" />
+  <span class="trophy" id="brandFb" style="display:none">🏆</span>
   <h1>FIFA World Cup 2026</h1>
   <div class="sub">Live scores · goals · tables · bracket — all times Pacific (PT)</div>
   <div class="hosts"><span>🇨🇦 Canada</span><span>🇲🇽 Mexico</span><span>🇺🇸 USA</span></div>
