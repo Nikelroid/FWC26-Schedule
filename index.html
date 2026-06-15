@@ -326,6 +326,27 @@ const M = [
  ["2026-06-27","19:00","J","Jordan","Argentina","Dallas Stadium · Dallas","Argentina"]
 ];
 
+// Real stadium names (FIFA uses generic host-city names during the tournament; these are the actual venues)
+const VENUE={
+ "Mexico City Stadium · Mexico City":"Estadio Azteca · Mexico City",
+ "Estadio Guadalajara · Guadalajara":"Estadio Akron · Guadalajara",
+ "Toronto Stadium · Toronto":"BMO Field · Toronto",
+ "Los Angeles Stadium · Los Angeles":"SoFi Stadium · Los Angeles",
+ "SF Bay Area Stadium · San Francisco":"Levi's Stadium · San Francisco Bay",
+ "New York New Jersey Stadium · New Jersey":"MetLife Stadium · New York / NJ",
+ "Boston Stadium · Boston":"Gillette Stadium · Boston",
+ "BC Place · Vancouver":"BC Place · Vancouver",
+ "Houston Stadium · Houston":"NRG Stadium · Houston",
+ "Dallas Stadium · Dallas":"AT&T Stadium · Dallas",
+ "Philadelphia Stadium · Philadelphia":"Lincoln Financial Field · Philadelphia",
+ "Estadio Monterrey · Monterrey":"Estadio BBVA · Monterrey",
+ "Atlanta Stadium · Atlanta":"Mercedes-Benz Stadium · Atlanta",
+ "Miami Stadium · Miami":"Hard Rock Stadium · Miami",
+ "Kansas City Stadium · Kansas City":"Arrowhead Stadium · Kansas City",
+ "Seattle Stadium · Seattle":"Lumen Field · Seattle"
+};
+M.forEach(m=>{ m[5]=VENUE[m[5]]||m[5]; });
+
 const GPRED = {
  A:["Mexico","South Korea"], B:["Switzerland","Canada"], C:["Brazil","Morocco"],
  D:["USA","Türkiye"], E:["Germany","Ecuador"], F:["Netherlands","Japan"],
@@ -475,15 +496,17 @@ function lookupApi(m){
   const same=norm(best.home)===norm(m[3]);
   return { hs:same?best.hs:best.as, as:same?best.as:best.hs, st:best.st, elapsed:best.elapsed, id:best.id, sameOrient:same };
 }
+const LIVE_WIN=130*60*1000;   // max plausible group-match wall-clock length (no-status fallback only)
 function fixtureState(m, now){
   const a=lookupApi(m), ep=ptEpoch(m[0],m[1]);
   if(a){
-    if(a.st==="LIVE") return {s:"live", a};
-    if(a.st==="FT" || a.hs!=null) return {s:"past", a};
+    if(a.st==="LIVE" && now < ep+4*3600*1000) return {s:"live", a}; // trust live (guard against a stuck feed)
+    if(a.st==="FT") return {s:"past", a};                           // finished per feed → never live
+    if(a.hs!=null)  return {s:"past", a};                           // final score present even if status lagging
   }
-  if(now>=ep && now<ep+2.5*3600*1000) return {s:"live", a:(a&&a.hs!=null)?a:null};
-  if(now>=ep+2.5*3600*1000)          return {s:"past", a:(a&&a.hs!=null)?a:null};
-  return {s:"upcoming", a:null};
+  if(now < ep)            return {s:"upcoming", a:null};
+  if(now < ep+LIVE_WIN)   return {s:"live", a:null};                 // best guess only while we have no status
+  return {s:"past", a:null};
 }
 
 // ===================== STATE =====================
