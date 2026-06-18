@@ -19,7 +19,9 @@ the page reads that file directly (same-origin — no proxy, no exposed token). 
 
 **Designed to barely touch the API:**
 
-- The schedule only wakes during match hours (UTC 16:00–07:00), in June & July.
+- The schedule is derived from the fixture list: it wakes every 10 minutes only from
+  15:45–07:00 UTC (the span the games actually occupy: 9:00 AM PT earliest kickoff →
+  last game ends ~07:00 UTC) and is completely idle the other ~9 hours of the day.
 - Each run (`scripts/update-scores.mjs`) calls football-data.org **only** when a match is live, just
   kicked off, awaiting its final result, or starting within 15 minutes. Finished matches are cached
   in `scores.json` and never re-fetched.
