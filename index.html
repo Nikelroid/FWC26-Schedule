@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0e1a" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="WC 2026" />
 <title>World Cup 2026 — Live Scores &amp; Schedule</title>
 <link rel="manifest" href="site.webmanifest" />
@@ -177,6 +177,29 @@
   footer{text-align:center;color:#5e6a88;font-size:11px;margin-top:26px;line-height:1.6;padding:0 14px}
   footer a{color:var(--muted)}
   .pulse{animation:pulse 1.4s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* language button */
+  .langbtn{background:var(--card);color:var(--gold);border:1px solid var(--card-brd);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;cursor:pointer}
+  /* favourite star + action buttons */
+  .team .favbtn{margin-left:auto;background:none;border:none;color:#566083;font-size:17px;line-height:1;cursor:pointer;padding:0 2px;flex:none}
+  .team .favbtn.on{color:var(--gold)}
+  .team .sc{margin-left:8px}
+  .match.hasfav{border-color:rgba(233,196,106,.4)}
+  .match-top{grid-template-columns:1fr auto auto}
+  .cardacts{display:flex;flex-direction:column;gap:6px;justify-content:center;padding-left:10px;margin-left:2px;border-left:1px solid var(--card-brd)}
+  .iconbtn{width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid var(--card-brd);color:#aeb8d4;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1}
+  .iconbtn:active{transform:scale(.92)}
+  .meta .vn{max-width:108px}
+  /* RTL */
+  [dir="rtl"] .search .ic{left:auto;right:11px}
+  [dir="rtl"] .search input{padding:10px 34px 10px 12px}
+  [dir="rtl"] .team .favbtn{margin-left:0;margin-right:auto}
+  [dir="rtl"] .team .sc{margin-left:0;margin-right:8px}
+  [dir="rtl"] .vs{padding-left:0;padding-right:35px}
+  [dir="rtl"] .meta{text-align:left}
+  [dir="rtl"] .goal.away{flex-direction:row}
+  [dir="rtl"] .goal.home{flex-direction:row-reverse}
+  [dir="rtl"] .cardacts{border-left:none;border-right:1px solid var(--card-brd);padding-left:0;padding-right:10px;margin-left:0;margin-right:2px}
 </style>
 </head>
 <body class="show-pred v-sched">
@@ -184,32 +207,32 @@
   <img class="brand-img" src="icon.png" alt="World Cup 2026" onerror="this.style.display='none';document.getElementById('brandFb').style.display='inline-block';" />
   <span class="trophy" id="brandFb" style="display:none">🏆</span>
   <h1>FIFA World Cup 2026</h1>
-  <div class="sub">Live scores · goals · tables · bracket — all times Pacific (PT)</div>
-  <div class="hosts"><span>🇨🇦 Canada</span><span>🇲🇽 Mexico</span><span>🇺🇸 USA</span></div>
-  <div class="apibar" id="apibar"><span class="live-dot"></span><span id="apiStatus">Loading scores…</span><button class="refresh" id="refreshBtn">↻ Refresh</button></div>
-  <div class="tzrow">🕒 Times in <select id="tzSel"></select><span class="abbr" id="tzAbbr"></span></div>
+  <div class="sub" id="subLine"></div>
+  <div class="hosts" id="hosts"></div>
+  <div class="apibar" id="apibar"><span class="live-dot"></span><span id="apiStatus">…</span><button class="refresh" id="refreshBtn">↻</button></div>
+  <div class="tzrow"><span id="tzLabel">🕒</span> <select id="tzSel"></select><span class="abbr" id="tzAbbr"></span><button class="langbtn" id="langBtn">فارسی</button></div>
 </header>
 
 <div class="sticky">
   <div class="tabs">
-    <div class="tab active" data-view="sched">Matches</div>
-    <div class="tab" data-view="tables">Tables</div>
-    <div class="tab" data-view="bracket">Bracket</div>
-    <div class="tab" data-view="picks">Picks</div>
+    <div class="tab active" data-view="sched"></div>
+    <div class="tab" data-view="tables"></div>
+    <div class="tab" data-view="bracket"></div>
+    <div class="tab" data-view="picks"></div>
   </div>
 </div>
 
 <div class="wrap">
   <div class="segwrap">
     <div class="segmented" id="seg">
-      <div class="seg active" data-f="next">🔴 Live &amp; Next <span class="cnt" id="cNext"></span></div>
-      <div class="seg" data-f="past">✅ Results <span class="cnt" id="cPast"></span></div>
-      <div class="seg" data-f="all">📅 All</div>
+      <div class="seg active" data-f="next"><span class="lab"></span> <span class="cnt" id="cNext"></span></div>
+      <div class="seg" data-f="past"><span class="lab"></span> <span class="cnt" id="cPast"></span></div>
+      <div class="seg" data-f="all"><span class="lab"></span></div>
     </div>
   </div>
   <div class="toolbar">
-    <div class="search"><span class="ic">🔍</span><input id="q" type="text" placeholder="Search a team… e.g. Brazil" /></div>
-    <div class="pred-toggle on" id="predT"><span class="dot"></span>Picks</div>
+    <div class="search"><span class="ic">🔍</span><input id="q" type="text" /></div>
+    <div class="pred-toggle on" id="predT"><span class="dot"></span><span class="lab">Picks</span></div>
   </div>
   <div class="chips" id="chips"></div>
 
@@ -218,10 +241,7 @@
   <div class="bracket-wrap" id="bracketView"></div>
   <div class="pred-wrap" id="predView"></div>
 
-  <footer>
-    Live data via API-Football (through your Cloudflare proxy) with TheSportsDB fallback.<br/>
-    Tap any match to see goal scorers. Times auto-adjust to your timezone. ⚽
-  </footer>
+  <footer id="footer"></footer>
 </div>
 
 <script>
@@ -373,13 +393,85 @@ const fmt12=t=>{let[h,m]=t.split(":").map(Number);const ap=h>=12?"PM":"AM";h=h%1
 const ptEpoch=(d,t)=>new Date(d+"T"+t+":00-07:00").getTime(); // fixtures are stored in Pacific; this gives the absolute moment
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
+// ===================== i18n (EN / FA) =====================
+const TEAM_FA={
+ "Mexico":"مکزیک","South Africa":"آفریقای جنوبی","South Korea":"کره جنوبی","Czechia":"چک",
+ "Canada":"کانادا","Bosnia & Herzegovina":"بوسنی و هرزگوین","Qatar":"قطر","Switzerland":"سوئیس",
+ "Brazil":"برزیل","Morocco":"مراکش","Haiti":"هائیتی","Scotland":"اسکاتلند",
+ "USA":"آمریکا","Paraguay":"پاراگوئه","Australia":"استرالیا","Türkiye":"ترکیه",
+ "Germany":"آلمان","Curaçao":"کوراسائو","Côte d'Ivoire":"ساحل عاج","Ecuador":"اکوادور",
+ "Netherlands":"هلند","Japan":"ژاپن","Sweden":"سوئد","Tunisia":"تونس",
+ "Belgium":"بلژیک","Egypt":"مصر","Iran":"ایران","New Zealand":"نیوزیلند",
+ "Spain":"اسپانیا","Cape Verde":"کیپ‌ورد","Saudi Arabia":"عربستان","Uruguay":"اروگوئه",
+ "France":"فرانسه","Senegal":"سنگال","Iraq":"عراق","Norway":"نروژ",
+ "Argentina":"آرژانتین","Algeria":"الجزایر","Austria":"اتریش","Jordan":"اردن",
+ "Portugal":"پرتغال","DR Congo":"کنگو","Uzbekistan":"ازبکستان","Colombia":"کلمبیا",
+ "England":"انگلیس","Croatia":"کرواسی","Ghana":"غنا","Panama":"پاناما"
+};
+const I18N={
+ en:{ tab_sched:"Matches",tab_tables:"Tables",tab_bracket:"Bracket",tab_picks:"Picks",
+   seg_next:"🔴 Live & Next",seg_past:"✅ Results",seg_all:"📅 All",
+   search:"Search a team… e.g. Brazil",picks:"Picks",
+   sub:"Live scores · goals · tables · bracket",
+   tzLabel:"🕒 Times in",allGroups:"All groups",group:"Group",mine:"⭐ Mine",
+   today:"TODAY",matches:"matches",match:"match",fullTime:"FULL TIME",ended:"ENDED",live:"LIVE",vs:"vs",
+   pick:"PICK",goalsHint:"Tap to load goal scorers…",noGoals:"No goals yet.",
+   addCal:"Add to calendar",share:"Share",
+   thTeam:"Team",goalsTitle:"⚽ Goals scored by team",goalsDesc:"Updates live from results. Top scoring teams so far.",
+   noGoalsChart:"No goals yet — the chart fills in as matches are played. ⚽",
+   thirdTitle:"🥉 Best third-placed teams",thirdDesc:"Top 8 third-placed teams also reach the Round of 32.",
+   emptyPast:"No completed matches yet — check back after kickoff. ⚽",
+   emptyNext:"No upcoming matches match this filter. 🏁",emptyNone:"No matches found.",
+   koNoteEmpty:"The bracket is empty until the group stage ends (June 27) — then it fills in automatically.",
+   koNoteLive:"Matchups & scores update automatically as each round is played.",awaiting:"awaiting draw",
+   champion:"PREDICTED CHAMPION",runnerUp:"Runner-up",third:"3rd place",otherSemi:"Other semi-finalist",
+   darkHorse:"🐎 Dark horse",goldenBoot:"⚽ Golden Boot",youngPlayer:"✨ Best young player",
+   groupCall:"📊 Group-by-group call",groupCallDesc:"My pick for who tops each group (left) and who grabs second (right).",
+   colWinner:"Winner",colRunner:"Runner-up",grp:"Grp",reasoningTitle:"💬 The reasoning, briefly",
+   reasoning:"France land as my champion: the deepest squad, Mbappé in his prime, and a manageable route out of Group I. Argentina remain ruthless in knockouts. Spain and England round out the four. Morocco are the dark horse again. Upsets to watch: Türkiye edging the USA's group, and Ecuador past Côte d'Ivoire.",
+   liveWord:"Live",footer:"Auto-updating scores · times in your timezone · tap a match to follow ⚽",
+   scoresLoading:"Loading scores…",scoresSoon:"Scores load automatically — first update may take a few minutes",scoresErr:"Scores unavailable — check proxy / API key" },
+ fa:{ tab_sched:"بازی‌ها",tab_tables:"جدول‌ها",tab_bracket:"حذفی",tab_picks:"پیش‌بینی",
+   seg_next:"🔴 زنده و بعدی",seg_past:"✅ نتایج",seg_all:"📅 همه",
+   search:"جستجوی تیم… مثلاً برزیل",picks:"پیش‌بینی",
+   sub:"نتایج زنده · گل‌ها · جدول‌ها · مرحلهٔ حذفی",
+   tzLabel:"🕒 ساعت به وقت",allGroups:"همهٔ گروه‌ها",group:"گروه",mine:"⭐ موردعلاقه",
+   today:"امروز",matches:"بازی",match:"بازی",fullTime:"پایان بازی",ended:"تمام شد",live:"زنده",vs:"–",
+   pick:"انتخاب",goalsHint:"برای دیدن گل‌زن‌ها بزنید…",noGoals:"هنوز گلی نشده.",
+   addCal:"افزودن به تقویم",share:"اشتراک",
+   thTeam:"تیم",goalsTitle:"⚽ گل‌های زده‌شده هر تیم",goalsDesc:"زنده از روی نتایج. بیشترین گل‌زن‌ها تا الان.",
+   noGoalsChart:"هنوز گلی نشده — با شروع بازی‌ها پر می‌شود. ⚽",
+   thirdTitle:"🥉 بهترین تیم‌های سوم",thirdDesc:"۸ تیم سومِ برتر هم به مرحلهٔ یک‌سی‌ودوم صعود می‌کنند.",
+   emptyPast:"هنوز بازی‌ای تمام نشده — بعد از شروع سر بزنید. ⚽",
+   emptyNext:"بازی پیش‌رویی با این فیلتر نیست. 🏁",emptyNone:"بازی‌ای پیدا نشد.",
+   koNoteEmpty:"تا پایان مرحلهٔ گروهی (۲۷ ژوئن) براکت خالیه — بعد خودکار پر می‌شه.",
+   koNoteLive:"تیم‌ها و نتایج با بازی‌شدن هر مرحله خودکار آپدیت می‌شن.",awaiting:"در انتظار قرعه",
+   champion:"قهرمان پیش‌بینی‌شده",runnerUp:"نایب‌قهرمان",third:"رتبهٔ سوم",otherSemi:"نیمه‌نهایی دیگر",
+   darkHorse:"🐎 اسب سیاه",goldenBoot:"⚽ کفش طلا",youngPlayer:"✨ بهترین بازیکن جوان",
+   groupCall:"📊 پیش‌بینی گروه‌به‌گروه",groupCallDesc:"حدس من برای صدرنشین هر گروه (راست) و تیم دوم (چپ).",
+   colWinner:"صدرنشین",colRunner:"دوم",grp:"گروه",reasoningTitle:"💬 خلاصهٔ دلیل",
+   reasoning:"فرانسه قهرمان من است: عمیق‌ترین ترکیب، امباپه در اوج، و مسیری منطقی از گروه I. آرژانتین در حذفی بی‌رحم می‌ماند. اسپانیا و انگلیس هم در جمع چهار تیم آخر. مراکش باز هم اسب سیاه است. شگفتی‌های محتمل: صدرنشینی ترکیه در گروه آمریکا و صعود اکوادور مقابل ساحل عاج.",
+   liveWord:"زنده",footer:"نتایج خودکار آپدیت می‌شن · ساعت به وقت محلی · روی بازی بزن تا دنبال کنی ⚽",
+   scoresLoading:"در حال بارگذاری نتایج…",scoresSoon:"نتایج خودکار میان — اولین آپدیت چند دقیقه طول می‌کشه",scoresErr:"نتایج در دسترس نیست — پراکسی/کلید را بررسی کن" }
+};
+let lang=(()=>{try{const s=localStorage.getItem("wc_lang");if(s)return s;return (navigator.language||"").toLowerCase().startsWith("fa")?"fa":"en";}catch(e){return "en";}})();
+const t=k=>(I18N[lang]&&I18N[lang][k])||I18N.en[k]||k;
+const teamName=n=>lang==="fa"?(TEAM_FA[n]||n):n;
+const loc=()=>lang==="fa"?"fa-IR-u-nu-latn":"en-US";
+
+// ===================== favourite teams =====================
+let favSet=(()=>{try{return new Set(JSON.parse(localStorage.getItem("wc_fav")||"[]"));}catch(e){return new Set();}})();
+const isFavTeam=n=>favSet.has(n);
+function saveFav(){try{localStorage.setItem("wc_fav",JSON.stringify([...favSet]));}catch(e){}}
+function toggleFav(n){ favSet.has(n)?favSet.delete(n):favSet.add(n); saveFav(); renderChips(); renderSched(); }
+
 // ---- timezone: everything renders in the viewer's chosen zone (default = their device zone) ----
 const LOCAL_TZ=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"America/Los_Angeles";}catch(e){return "America/Los_Angeles";}})();
 let chosenTZ=(()=>{try{return localStorage.getItem("wc_tz")||"auto";}catch(e){return "auto";}})();
 const activeTZ=()=>chosenTZ==="auto"?LOCAL_TZ:chosenTZ;
-const timeInTZ =ep=>new Intl.DateTimeFormat("en-US",{timeZone:activeTZ(),hour:"numeric",minute:"2-digit"}).format(ep);
+const timeInTZ =ep=>new Intl.DateTimeFormat(loc(),{timeZone:activeTZ(),hour:"numeric",minute:"2-digit"}).format(ep);
 const dateKeyTZ =ep=>new Intl.DateTimeFormat("en-CA",{timeZone:activeTZ(),year:"numeric",month:"2-digit",day:"2-digit"}).format(ep);
-const dateLabelTZ=ep=>new Intl.DateTimeFormat("en-US",{timeZone:activeTZ(),weekday:"short",month:"short",day:"numeric"}).format(ep);
+const dateLabelTZ=ep=>new Intl.DateTimeFormat(loc(),{timeZone:activeTZ(),weekday:"short",month:"short",day:"numeric"}).format(ep);
 function tzAbbr(){try{const p=new Intl.DateTimeFormat("en-US",{timeZone:activeTZ(),timeZoneName:"short"}).formatToParts(Date.now());const z=p.find(x=>x.type==="timeZoneName");return z?z.value:"";}catch(e){return "";}}
 const todayStr=()=>dateKeyTZ(Date.now());
 
@@ -506,12 +598,14 @@ async function loadScores(){
     apiLoaded=true; setApiStatus(false,e.message); renderAll();
   }
 }
+let curSrc="";
 function setApiStatus(ok,src){
+  if(src!=null) curSrc=src;
   const bar=document.getElementById("apibar"), el=document.getElementById("apiStatus");
   bar.classList.toggle("err",!ok);
   if(ok){
-    el.textContent=`Live · ${src} · updated ${timeInTZ(Date.now())} ${tzAbbr()}`;
-  } else el.textContent = PROXY_URL ? "Scores unavailable — check proxy / API key" : "Scores load automatically — first update may take a few minutes";
+    el.textContent=`${t('liveWord')} · ${curSrc} · ${timeInTZ(Date.now())} ${tzAbbr()}`;
+  } else el.textContent = PROXY_URL ? t('scoresErr') : t('scoresSoon');
 }
 
 function lookupApi(m){
@@ -543,16 +637,18 @@ const openCards={};   // index -> bool (expanded scorers)
 
 // ===================== RENDER: MATCHES =====================
 function renderChips(){
-  const groups=["ALL","A","B","C","D","E","F","G","H","I","J","K","L"];
-  document.getElementById("chips").innerHTML=groups.map(g=>
-    `<div class="chip${state.group===g?" active":""}" data-g="${g}">${g==="ALL"?"All groups":"Group "+g}</div>`).join("");
+  const groups=["ALL","FAV","A","B","C","D","E","F","G","H","I","J","K","L"];
+  document.getElementById("chips").innerHTML=groups.map(g=>{
+    const lab = g==="ALL"?t('allGroups') : g==="FAV"?t('mine') : t('group')+" "+g;
+    return `<div class="chip${state.group===g?" active":""}" data-g="${g}">${lab}</div>`;
+  }).join("");
 }
 
 function goalsHtml(m, a){
   if(!a||!a.id) return "";
   const evs=eventsMap[a.id];
-  if(evs===undefined) return `<div class="goals"><div class="hint">Tap to load goal scorers…</div></div>`;
-  if(!evs.length) return `<div class="goals"><div class="hint">No goals yet.</div></div>`;
+  if(evs===undefined) return `<div class="goals"><div class="hint">${t('goalsHint')}</div></div>`;
+  if(!evs.length) return `<div class="goals"><div class="hint">${t('noGoals')}</div></div>`;
   const rows=evs.map(g=>{
     const homeSide=norm(g.team)===norm(m[3]);
     const tag=/Penalty/i.test(g.detail)?" (P)":/Own/i.test(g.detail)?" (OG)":"";
@@ -566,10 +662,13 @@ function teamRow(name, isPick, st, score, won, lost, pickWon){
   let pkCls="pk";
   if(st==="past"&&score!=null){ pkCls += won?" ok":" no"; }
   if(pickWon) pkCls="pk ok";
-  const pkTxt=(st==="past"&&score!=null)?(won?"✓ PICK":"✗ PICK"):"PICK";
+  const P=t('pick');
+  const pkTxt=(st==="past"&&score!=null)?(won?"✓ "+P:"✗ "+P):P;
+  const fav=isFavTeam(name);
   return `<div class="team${won?" awin":""}${lost?" lose":""}${isPick?" pick":""}">
-      <span class="fl">${fl(name)}</span><span class="nm">${esc(name)}</span>
+      <span class="fl">${fl(name)}</span><span class="nm">${esc(teamName(name))}</span>
       ${isPick?`<span class="${pkCls}">${pkTxt}</span>`:""}
+      <button class="favbtn${fav?' on':''}" data-team="${esc(name)}" aria-label="follow">${fav?'★':'☆'}</button>
       ${score!=null?`<span class="sc">${score}</span>`:""}
     </div>`;
 }
@@ -582,15 +681,17 @@ function renderSched(){
   document.getElementById("cPast").textContent=nPast;
 
   let list=M.map((m,i)=>({m,i,ep:ptEpoch(m[0],m[1]),f:fixtureState(m,now)}));
-  if(state.group!=="ALL") list=list.filter(x=>x.m[2]===state.group);
-  if(state.q){const q=state.q.toLowerCase();list=list.filter(x=>x.m[3].toLowerCase().includes(q)||x.m[4].toLowerCase().includes(q));}
+  if(state.group==="FAV") list=list.filter(x=>favSet.has(x.m[3])||favSet.has(x.m[4]));
+  else if(state.group!=="ALL") list=list.filter(x=>x.m[2]===state.group);
+  if(state.q){const q=state.q.toLowerCase();list=list.filter(x=>x.m[3].toLowerCase().includes(q)||x.m[4].toLowerCase().includes(q)||teamName(x.m[3]).toLowerCase().includes(q)||teamName(x.m[4]).toLowerCase().includes(q));}
   if(state.filter==="next") list=list.filter(x=>x.f.s!=="past");
   else if(state.filter==="past") list=list.filter(x=>x.f.s==="past");
 
   const el=document.getElementById("sched");
   if(!list.length){
-    const msg=state.filter==="past"?"No completed matches yet — check back after kickoff. ⚽"
-      :state.filter==="next"?"No upcoming matches match this filter. 🏁":"No matches found.";
+    let msg;
+    if(state.group==="FAV") msg = lang==="fa"?"کنار اسم تیم‌ها ☆ رو بزن تا دنبالشون کنی.":"Tap ☆ next to a team to follow it.";
+    else msg = state.filter==="past"?t('emptyPast'):state.filter==="next"?t('emptyNext'):t('emptyNone');
     el.innerHTML=`<div class="empty">${msg}</div>`;return;
   }
   let nextEp=Infinity;
@@ -605,7 +706,7 @@ function renderSched(){
   days.forEach(d=>{
     const isToday=d===today;
     const dayLabel=dateLabelTZ(byDay[d][0].ep);
-    html+=`<div class="day"><div class="day-h${isToday?" today":""}"><span class="dnum">${dayLabel}</span>${isToday?'<span class="badge">TODAY</span>':""}<span class="line"></span><span style="font-size:11px;color:var(--muted);font-weight:600">${byDay[d].length} ${byDay[d].length>1?"matches":"match"}</span></div>`;
+    html+=`<div class="day"><div class="day-h${isToday?" today":""}"><span class="dnum">${dayLabel}</span>${isToday?`<span class="badge">${t('today')}</span>`:""}<span class="line"></span><span style="font-size:11px;color:var(--muted);font-weight:600">${byDay[d].length} ${byDay[d].length>1?t('matches'):t('match')}</span></div>`;
     byDay[d].sort((a,b)=>desc?b.ep-a.ep:a.ep-b.ep).forEach(x=>{
       const m=x.m,f=x.f,a=f.a,ep=x.ep;
       const live=f.s==="live", isNext=f.s==="upcoming"&&ep===nextEp;
@@ -614,20 +715,26 @@ function renderSched(){
       if(a&&a.hs!=null){hs=a.hs;as=a.as;if(hs>as){hWon=true;aLost=true;}else if(as>hs){aWon=true;hLost=true;}}
       const hPick=m[6]===m[3],aPick=m[6]===m[4];
       let metaMid;
-      if(live){const min=a&&a.elapsed?`${a.elapsed}'`:"LIVE";metaMid=`<span class="st live pulse">● ${min}</span>`;}
-      else if(f.s==="past"&&hs!=null) metaMid=`<span class="st ft">FULL TIME</span>`;
-      else if(f.s==="past") metaMid=`<span class="st ft">ENDED</span>`;
+      if(live){const min=a&&a.elapsed?`${a.elapsed}'`:t('live');metaMid=`<span class="st live pulse">● ${min}</span>`;}
+      else if(f.s==="past"&&hs!=null) metaMid=`<span class="st ft">${t('fullTime')}</span>`;
+      else if(f.s==="past") metaMid=`<span class="st ft">${t('ended')}</span>`;
       else metaMid=`<span class="tm">${timeInTZ(ep)}</span>`;
       const showGoals=(live||f.s==="past")&&hs!=null&&usingAF;
       const isOpen=openCards[x.i]||live; // live auto-open
-      html+=`<div class="match${cls}${isOpen&&showGoals?" open":""}" data-i="${x.i}"${a&&a.id?` data-fid="${a.id}"`:""}>
+      const hasFav=favSet.has(m[3])||favSet.has(m[4]);
+      const grpTag=(lang==="fa"?"گ":"GRP")+" "+m[2];
+      html+=`<div class="match${cls}${hasFav?" hasfav":""}${isOpen&&showGoals?" open":""}" data-i="${x.i}"${a&&a.id?` data-fid="${a.id}"`:""}>
         <div class="match-top">
           <div class="teams">
             ${teamRow(m[3],hPick,f.s,hs,hWon,hLost,hPick&&hWon)}
-            <div class="vs">vs</div>
+            <div class="vs">${t('vs')}</div>
             ${teamRow(m[4],aPick,f.s,as,aWon,aLost,aPick&&aWon)}
           </div>
-          <div class="meta"><span class="gp">GRP ${m[2]}</span>${metaMid}<span class="vn">${esc(m[5])}</span></div>
+          <div class="meta"><span class="gp">${grpTag}</span>${metaMid}<span class="vn">${esc(m[5])}</span></div>
+          <div class="cardacts">
+            <button class="iconbtn" data-act="cal" data-i="${x.i}" aria-label="${t('addCal')}" title="${t('addCal')}">📅</button>
+            <button class="iconbtn" data-act="share" data-i="${x.i}" aria-label="${t('share')}" title="${t('share')}">📤</button>
+          </div>
         </div>
         ${showGoals?goalsHtml(m,a):""}
       </div>`;
@@ -652,17 +759,31 @@ function computeStandings(){
   });
   return g;
 }
+const cmpRow=(a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||a.t.localeCompare(b.t);
 function renderTables(){
   const g=computeStandings();
-  let html=`<div class="chartcard"><h2>⚽ Goals scored by team</h2><p class="desc">Updates live from match results. Top scoring teams so far.</p><div class="chartbox"><canvas id="goalsChart"></canvas></div></div>`;
+  let html=`<div class="chartcard"><h2>${t('goalsTitle')}</h2><p class="desc">${t('goalsDesc')}</p><div class="chartbox"><canvas id="goalsChart"></canvas></div></div>`;
+
+  // best third-placed teams (top 8 advance)
+  const thirds=[];
+  Object.keys(g).forEach(grp=>{ const r=Object.values(g[grp]).sort(cmpRow)[2]; if(r) thirds.push({grp,...r}); });
+  thirds.sort(cmpRow);
+  html+=`<div class="gtable"><h3>${t('thirdTitle')}</h3><p class="desc" style="margin:-2px 0 8px">${t('thirdDesc')}</p><table class="st">
+    <tr><th>#</th><th>${t('grp')}</th><th style="text-align:left">${t('thTeam')}</th><th>P</th><th>GD</th><th>Pts</th></tr>`;
+  thirds.forEach((r,i)=>{ const gd=r.gf-r.ga;
+    html+=`<tr class="${i<8?'qual':''}"><td class="pos">${i+1}</td><td>${r.grp}</td><td class="tn"><span class="fl">${fl(r.t)}</span>${esc(teamName(r.t))}</td><td>${r.p}</td><td>${gd>0?"+":""}${gd}</td><td class="pts">${r.pts}</td></tr>`;
+  });
+  html+=`</table></div>`;
+
+  // group tables
   Object.keys(g).sort().forEach(grp=>{
-    const rows=Object.values(g[grp]).sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||a.t.localeCompare(b.t));
-    html+=`<div class="gtable"><h3>Group ${grp}</h3><table class="st">
-      <tr><th>#</th><th style="text-align:left">Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>`;
+    const rows=Object.values(g[grp]).sort(cmpRow);
+    html+=`<div class="gtable"><h3>${t('group')} ${grp}</h3><table class="st">
+      <tr><th>#</th><th style="text-align:left">${t('thTeam')}</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>`;
     rows.forEach((r,i)=>{
       const cls=i<2?"qual":(i===2?"third":"");
       const gd=r.gf-r.ga;
-      html+=`<tr class="${cls}"><td class="pos">${i+1}</td><td class="tn"><span class="fl">${fl(r.t)}</span>${esc(r.t)}</td>
+      html+=`<tr class="${cls}"><td class="pos">${i+1}</td><td class="tn"><span class="fl">${fl(r.t)}</span>${esc(teamName(r.t))}</td>
         <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td><td>${gd>0?"+":""}${gd}</td><td class="pts">${r.pts}</td></tr>`;
     });
     html+=`</table></div>`;
@@ -677,14 +798,14 @@ function renderTables(){
   if(goalsChart){goalsChart.destroy();goalsChart=null;}
   if(ctx && entries.length && window.Chart){
     goalsChart=new Chart(ctx,{type:"bar",
-      data:{labels:entries.map(e=>fl(e[0])+" "+e[0]),datasets:[{data:entries.map(e=>e[1]),
+      data:{labels:entries.map(e=>fl(e[0])+" "+teamName(e[0])),datasets:[{data:entries.map(e=>e[1]),
         backgroundColor:"rgba(233,196,106,.85)",borderRadius:6,barThickness:14}]},
       options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+" goals"}}},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+" ⚽"}}},
         scales:{x:{ticks:{color:"#93a0c0",precision:0},grid:{color:"rgba(255,255,255,.06)"}},
                 y:{ticks:{color:"#eef2ff",font:{size:11}},grid:{display:false}}}}});
   } else if(ctx && !entries.length){
-    ctx.parentElement.innerHTML='<div class="empty" style="padding:20px">No goals yet — the chart fills in as matches are played. ⚽</div>';
+    ctx.parentElement.innerHTML=`<div class="empty" style="padding:20px">${t('noGoalsChart')}</div>`;
   }
 }
 
@@ -708,7 +829,7 @@ function renderBracket(){
   KO_ROUNDS.forEach(r=>koByRound[r].sort((a,b)=>a.ep-b.ep));
   const anyKO=KO_ROUNDS.some(r=>koByRound[r].length);
 
-  let html=`<div class="ko-note">🌳 Knockout tree. ${anyKO?"Matchups &amp; scores update live from the API as each round is played.":"The bracket is empty until the group stage ends (June 27 PT) and the round of 32 is drawn — it then fills in automatically."}</div>`;
+  let html=`<div class="ko-note">🌳 ${anyKO?t('koNoteLive'):t('koNoteEmpty')}</div>`;
   KO_ROUNDS.forEach(r=>{
     const [span,count]=KO_META[r];
     const fixtures=koByRound[r];
@@ -721,8 +842,8 @@ function renderBracket(){
         const stTxt=live?`<div class="st live">● ${fx.elapsed?fx.elapsed+"'":"LIVE"}</div>`:ft?`<div class="st ft">FT</div>`:"";
         html+=`<div class="ko${r==="Final"?" final":""}${live?" live":""}">
           <div class="pair">
-            <div class="kt ${hWin?'win':aWin?'lose':''}"><span class="fl">${fl(fx.home)}</span>${esc(fx.home)}${has?`<span class="ks">${hs}</span>`:""}</div>
-            <div class="kt ${aWin?'win':hWin?'lose':''}"><span class="fl">${fl(fx.away)}</span>${esc(fx.away)}${has?`<span class="ks">${as}</span>`:""}</div>
+            <div class="kt ${hWin?'win':aWin?'lose':''}"><span class="fl">${fl(fx.home)}</span>${esc(teamName(fx.home))}${has?`<span class="ks">${hs}</span>`:""}</div>
+            <div class="kt ${aWin?'win':hWin?'lose':''}"><span class="fl">${fl(fx.away)}</span>${esc(teamName(fx.away))}${has?`<span class="ks">${as}</span>`:""}</div>
           </div>
           <div class="info"><div class="d">${dateLabelTZ(fx.ep)}</div>${stTxt}</div>
         </div>`;
@@ -731,7 +852,7 @@ function renderBracket(){
       for(let i=0;i<count;i++){
         html+=`<div class="ko${r==="Final"?" final":""}">
           <div class="pair"><div class="kt"><span class="tbd">TBD</span></div><div class="kt"><span class="tbd">TBD</span></div></div>
-          <div class="info"><div class="d">${r==="Final"?"🏆":r.replace("-finals","").replace("Round of ","R")} </div><div class="v">awaiting draw</div></div>
+          <div class="info"><div class="d">${r==="Final"?"🏆":r.replace("-finals","").replace("Round of ","R")} </div><div class="v">${t('awaiting')}</div></div>
         </div>`;
       }
     }
@@ -744,30 +865,31 @@ function renderBracket(){
 function renderPred(){
   let rows="";
   Object.entries(GPRED).forEach(([g,[w,r]])=>{
-    rows+=`<div class="row"><div class="gh">${g}</div><div class="w"><span class="fl">${fl(w)}</span>${w}</div><div class="r"><span class="fl">${fl(r)}</span>${r}</div></div>`;
+    rows+=`<div class="row"><div class="gh">${g}</div><div class="w"><span class="fl">${fl(w)}</span>${esc(teamName(w))}</div><div class="r"><span class="fl">${fl(r)}</span>${esc(teamName(r))}</div></div>`;
   });
+  const T=n=>esc(teamName(n));
   document.getElementById("predView").innerHTML=`
   <div class="pcard">
-    <div class="champ"><div class="lbl">PREDICTED CHAMPION</div><div class="big"><span class="fl">🇫🇷</span>France</div></div>
+    <div class="champ"><div class="lbl">${t('champion')}</div><div class="big"><span class="fl">🇫🇷</span>${T('France')}</div></div>
     <div class="finalists">
-      <div class="fbox"><div class="t">Runner-up</div><div class="v"><span class="fl">🇦🇷</span>Argentina</div></div>
-      <div class="fbox"><div class="t">3rd place</div><div class="v"><span class="fl">🇪🇸</span>Spain</div></div>
+      <div class="fbox"><div class="t">${t('runnerUp')}</div><div class="v"><span class="fl">🇦🇷</span>${T('Argentina')}</div></div>
+      <div class="fbox"><div class="t">${t('third')}</div><div class="v"><span class="fl">🇪🇸</span>${T('Spain')}</div></div>
     </div>
     <div class="extra">
-      <div class="fbox"><div class="t">Other semi-finalist</div><div class="v"><span class="fl">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>England</div></div>
-      <div class="fbox"><div class="t">🐎 Dark horse</div><div class="v"><span class="fl">🇲🇦</span>Morocco</div></div>
+      <div class="fbox"><div class="t">${t('otherSemi')}</div><div class="v"><span class="fl">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>${T('England')}</div></div>
+      <div class="fbox"><div class="t">${t('darkHorse')}</div><div class="v"><span class="fl">🇲🇦</span>${T('Morocco')}</div></div>
     </div>
     <div class="extra">
-      <div class="fbox"><div class="t">⚽ Golden Boot</div><div class="v">Kylian Mbappé 🇫🇷</div></div>
-      <div class="fbox"><div class="t">✨ Best young player</div><div class="v">Lamine Yamal 🇪🇸</div></div>
+      <div class="fbox"><div class="t">${t('goldenBoot')}</div><div class="v">Kylian Mbappé 🇫🇷</div></div>
+      <div class="fbox"><div class="t">${t('youngPlayer')}</div><div class="v">Lamine Yamal 🇪🇸</div></div>
     </div>
   </div>
-  <div class="pcard"><h2>📊 Group-by-group call</h2><p class="desc">My pick for who tops each group (left) and who grabs second (right).</p>
-    <div class="gpred"><div class="row" style="font-weight:800"><div class="gh">Grp</div><div class="h1">Winner</div><div class="h1">Runner-up</div></div>${rows}</div>
+  <div class="pcard"><h2>${t('groupCall')}</h2><p class="desc">${t('groupCallDesc')}</p>
+    <div class="gpred"><div class="row" style="font-weight:800"><div class="gh">${t('grp')}</div><div class="h1">${t('colWinner')}</div><div class="h1">${t('colRunner')}</div></div>${rows}</div>
   </div>
-  <div class="pcard" style="font-size:12.5px;color:var(--muted);line-height:1.55">
-    <h2 style="font-size:14px;color:var(--txt)">💬 The reasoning, briefly</h2>
-    France land as my champion: the deepest squad in the tournament, Mbappé in his prime, and a manageable route out of Group I. Argentina remain ruthless in knockout football and I have them grinding back to the final. Spain's possession game and England's depth round out the four. Morocco are the dark horse again — semi-finalists in 2022 and dangerous on home-continent travel. Upsets to watch: Türkiye edging the USA's group, and Ecuador sneaking past Côte d'Ivoire.
+  <div class="pcard" style="font-size:12.5px;color:var(--muted);line-height:1.7">
+    <h2 style="font-size:14px;color:var(--txt)">${t('reasoningTitle')}</h2>
+    ${t('reasoning')}
   </div>`;
 }
 
@@ -783,6 +905,68 @@ function setView(v){
   document.body.className=document.body.className.replace(/\bv-\w+\b/g,"").trim()+" v-"+v;
   renderAll();
   if(v==="picks") renderPred();
+}
+
+// ===================== CALENDAR (.ics) =====================
+const icsT=ep=>new Date(ep).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+function downloadICS(i){
+  const m=M[i], start=ptEpoch(m[0],m[1]), end=start+2*3600*1000;
+  const title=`${m[3]} vs ${m[4]} — FIFA World Cup 2026`;
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//WC2026//EN","CALSCALE:GREGORIAN","BEGIN:VEVENT",
+    "UID:wc2026-"+i+"@kelidari","DTSTAMP:"+icsT(Date.now()),"DTSTART:"+icsT(start),"DTEND:"+icsT(end),
+    "SUMMARY:"+title,"LOCATION:"+m[5].replace(/[·,]/g," "),"DESCRIPTION:Group "+m[2]+" · FIFA World Cup 2026",
+    "END:VEVENT","END:VCALENDAR"].join("\r\n");
+  const url=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));
+  const a=document.createElement("a"); a.href=url; a.download=`${m[3]}-vs-${m[4]}.ics`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+// ===================== SHARE AS IMAGE =====================
+function shareCard(i){
+  const m=M[i], now=Date.now(), f=fixtureState(m,now), a=f.a, ep=ptEpoch(m[0],m[1]);
+  const W=1080,H=1350, c=document.createElement("canvas"); c.width=W;c.height=H;
+  const x=c.getContext("2d");
+  const g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,"#0d1430"); g.addColorStop(1,"#070b16");
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.textAlign="center";
+  x.fillStyle="#e9c46a"; x.font="bold 46px sans-serif"; x.fillText("FIFA WORLD CUP 2026", W/2, 150);
+  x.fillStyle="#93a0c0"; x.font="600 32px sans-serif"; x.fillText("Group "+m[2], W/2, 205);
+  x.font="130px sans-serif"; x.fillText(fl(m[3]), W/2, 470);
+  x.fillStyle="#fff"; x.font="bold 60px sans-serif"; x.fillText(m[3], W/2, 565);
+  let mid = (a&&a.hs!=null) ? (a.hs+"  :  "+a.as) : timeInTZ(ep);
+  x.fillStyle="#e9c46a"; x.font="bold 96px sans-serif"; x.fillText(mid, W/2, 710);
+  x.font="130px sans-serif"; x.fillStyle="#fff"; x.fillText(fl(m[4]), W/2, 900);
+  x.font="bold 60px sans-serif"; x.fillText(m[4], W/2, 995);
+  x.fillStyle="#93a0c0"; x.font="600 32px sans-serif";
+  const stTxt=(f.s==="live")?"LIVE":(f.s==="past"&&a&&a.hs!=null)?"FULL TIME":dateLabelTZ(ep);
+  x.fillText(stTxt, W/2, 1075); x.fillText(m[5], W/2, 1120);
+  x.fillStyle="#e9c46a"; x.font="bold 36px sans-serif"; x.fillText("kelidari.com/FWC26-Schedule", W/2, 1270);
+  c.toBlob(blob=>{
+    if(!blob) return;
+    const file=new File([blob],"wc2026-match.png",{type:"image/png"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:"World Cup 2026"}).catch(()=>{});
+    } else {
+      const url=URL.createObjectURL(blob), a2=document.createElement("a");
+      a2.href=url; a2.download=`${m[3]}-vs-${m[4]}.png`; document.body.appendChild(a2); a2.click(); a2.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1500);
+    }
+  },"image/png");
+}
+
+// ===================== APPLY LANGUAGE =====================
+function applyI18n(){
+  const root=document.documentElement;
+  root.lang=lang; root.dir=lang==="fa"?"rtl":"ltr";
+  document.querySelectorAll(".tab").forEach(el=>{ el.textContent=t("tab_"+el.dataset.view); });
+  document.querySelectorAll("#seg .seg").forEach(el=>{ el.querySelector(".lab").textContent=t("seg_"+el.dataset.f); });
+  document.querySelector("#predT .lab").textContent=t('picks');
+  document.getElementById("q").placeholder=t('search');
+  document.getElementById("tzLabel").textContent=t('tzLabel');
+  document.getElementById("subLine").textContent=t('sub');
+  document.getElementById("hosts").innerHTML=`<span>🇨🇦 ${esc(teamName('Canada'))}</span><span>🇲🇽 ${esc(teamName('Mexico'))}</span><span>🇺🇸 ${esc(teamName('USA'))}</span>`;
+  document.getElementById("footer").textContent=t('footer');
+  document.getElementById("langBtn").textContent = lang==="fa" ? "EN" : "فارسی";
 }
 
 // ===================== EVENTS =====================
@@ -817,11 +1001,21 @@ document.getElementById("refreshBtn").addEventListener("click",loadScores);
     try{localStorage.setItem("wc_tz",chosenTZ);}catch(e){}
     document.getElementById("tzAbbr").textContent=tzAbbr();
     renderAll(); if(state.view==="picks") renderPred();
-    setApiStatus(apiLoaded,usingAF?"API-Football":"TheSportsDB");
+    setApiStatus(apiLoaded);
   });
 })();
-// tap a match → toggle scorers (lazy-load events)
+// language toggle
+document.getElementById("langBtn").addEventListener("click",()=>{
+  lang = lang==="fa" ? "en" : "fa";
+  try{ localStorage.setItem("wc_lang",lang); }catch(e){}
+  applyI18n(); renderChips(); renderAll(); renderPred(); setApiStatus(apiLoaded);
+});
+// tap a match → favourite star / calendar / share / toggle scorers
 document.getElementById("sched").addEventListener("click",async e=>{
+  const favb=e.target.closest(".favbtn");
+  if(favb){ e.stopPropagation(); toggleFav(favb.dataset.team); return; }
+  const act=e.target.closest(".iconbtn");
+  if(act){ e.stopPropagation(); const ai=+act.dataset.i; act.dataset.act==="cal"?downloadICS(ai):shareCard(ai); return; }
   const card=e.target.closest(".match");if(!card)return;
   const i=+card.dataset.i, fid=card.dataset.fid;
   openCards[i]=!card.classList.contains("open");
@@ -843,6 +1037,7 @@ function nextDelay(){
 function scheduleNext(){ clearTimeout(pollTimer); pollTimer=setTimeout(async()=>{ await loadScores(); scheduleNext(); }, nextDelay()); }
 
 // init
+applyI18n();
 renderChips();renderSched();renderPred();
 (async()=>{ await loadScores(); scheduleNext(); })();
 setInterval(()=>{ if(state.view==="sched") renderSched(); },30000); // tick live/next labels
