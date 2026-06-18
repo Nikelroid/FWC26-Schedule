@@ -178,12 +178,13 @@
   footer a{color:var(--muted)}
   .pulse{animation:pulse 1.4s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-  /* language button */
-  .langbtn{background:var(--card);color:var(--gold);border:1px solid var(--card-brd);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;cursor:pointer}
-  /* favourite star + action buttons */
-  .team .favbtn{margin-left:auto;background:none;border:none;color:#566083;font-size:17px;line-height:1;cursor:pointer;padding:0 2px;flex:none}
-  .team .favbtn.on{color:var(--gold)}
-  .team .sc{margin-left:8px}
+  /* language button (top-right of header) */
+  header.hero{position:relative}
+  .langbtn{position:absolute;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:5;background:var(--card);color:var(--gold);border:1px solid var(--card-brd);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer}
+  [dir="rtl"] .langbtn{right:auto;left:14px}
+  /* favourite star (used in Tables) */
+  .favbtn{background:none;border:none;color:#566083;font-size:15px;line-height:1;cursor:pointer;padding:0 5px 0 0}
+  .favbtn.on{color:var(--gold)}
   .match.hasfav{border-color:rgba(233,196,106,.4)}
   .match-top{grid-template-columns:1fr auto auto}
   .cardacts{display:flex;flex-direction:column;gap:6px;justify-content:center;padding-left:10px;margin-left:2px;border-left:1px solid var(--card-brd)}
@@ -204,13 +205,14 @@
 </head>
 <body class="show-pred v-sched">
 <header class="hero">
+  <button class="langbtn" id="langBtn">Fa</button>
   <img class="brand-img" src="icon.png" alt="World Cup 2026" onerror="this.style.display='none';document.getElementById('brandFb').style.display='inline-block';" />
   <span class="trophy" id="brandFb" style="display:none">🏆</span>
   <h1>FIFA World Cup 2026</h1>
   <div class="sub" id="subLine"></div>
   <div class="hosts" id="hosts"></div>
   <div class="apibar" id="apibar"><span class="live-dot"></span><span id="apiStatus">…</span><button class="refresh" id="refreshBtn">↻</button></div>
-  <div class="tzrow"><span id="tzLabel">🕒</span> <select id="tzSel"></select><span class="abbr" id="tzAbbr"></span><button class="langbtn" id="langBtn">فارسی</button></div>
+  <div class="tzrow"><span id="tzLabel">🕒</span> <select id="tzSel"></select><span class="abbr" id="tzAbbr"></span></div>
 </header>
 
 <div class="sticky">
@@ -232,7 +234,6 @@
   </div>
   <div class="toolbar">
     <div class="search"><span class="ic">🔍</span><input id="q" type="text" /></div>
-    <div class="pred-toggle on" id="predT"><span class="dot"></span><span class="lab">Picks</span></div>
   </div>
   <div class="chips" id="chips"></div>
 
@@ -413,7 +414,7 @@ const I18N={
    seg_next:"🔴 Live & Next",seg_past:"✅ Results",seg_all:"📅 All",
    search:"Search a team… e.g. Brazil",picks:"Picks",
    sub:"Live scores · goals · tables · bracket",
-   tzLabel:"🕒 Times in",allGroups:"All groups",group:"Group",mine:"⭐ Mine",
+   tzLabel:"🕒",allGroups:"All groups",group:"Group",mine:"⭐ Mine",
    today:"TODAY",matches:"matches",match:"match",fullTime:"FULL TIME",ended:"ENDED",live:"LIVE",vs:"vs",
    pick:"PICK",goalsHint:"Tap to load goal scorers…",noGoals:"No goals yet.",
    addCal:"Add to calendar",share:"Share",
@@ -435,7 +436,7 @@ const I18N={
    seg_next:"🔴 زنده و بعدی",seg_past:"✅ نتایج",seg_all:"📅 همه",
    search:"جستجوی تیم… مثلاً برزیل",picks:"پیش‌بینی",
    sub:"نتایج زنده · گل‌ها · جدول‌ها · مرحلهٔ حذفی",
-   tzLabel:"🕒 ساعت به وقت",allGroups:"همهٔ گروه‌ها",group:"گروه",mine:"⭐ موردعلاقه",
+   tzLabel:"🕒",allGroups:"همهٔ گروه‌ها",group:"گروه",mine:"⭐ موردعلاقه",
    today:"امروز",matches:"بازی",match:"بازی",fullTime:"پایان بازی",ended:"تمام شد",live:"زنده",vs:"–",
    pick:"انتخاب",goalsHint:"برای دیدن گل‌زن‌ها بزنید…",noGoals:"هنوز گلی نشده.",
    addCal:"افزودن به تقویم",share:"اشتراک",
@@ -463,7 +464,7 @@ const loc=()=>lang==="fa"?"fa-IR-u-nu-latn":"en-US";
 let favSet=(()=>{try{return new Set(JSON.parse(localStorage.getItem("wc_fav")||"[]"));}catch(e){return new Set();}})();
 const isFavTeam=n=>favSet.has(n);
 function saveFav(){try{localStorage.setItem("wc_fav",JSON.stringify([...favSet]));}catch(e){}}
-function toggleFav(n){ favSet.has(n)?favSet.delete(n):favSet.add(n); saveFav(); renderChips(); renderSched(); }
+function toggleFav(n){ favSet.has(n)?favSet.delete(n):favSet.add(n); saveFav(); renderChips(); renderAll(); }
 
 // ---- timezone: everything renders in the viewer's chosen zone (default = their device zone) ----
 const LOCAL_TZ=(()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"America/Los_Angeles";}catch(e){return "America/Los_Angeles";}})();
@@ -658,17 +659,9 @@ function goalsHtml(m, a){
   return `<div class="goals">${rows}</div>`;
 }
 
-function teamRow(name, isPick, st, score, won, lost, pickWon){
-  let pkCls="pk";
-  if(st==="past"&&score!=null){ pkCls += won?" ok":" no"; }
-  if(pickWon) pkCls="pk ok";
-  const P=t('pick');
-  const pkTxt=(st==="past"&&score!=null)?(won?"✓ "+P:"✗ "+P):P;
-  const fav=isFavTeam(name);
-  return `<div class="team${won?" awin":""}${lost?" lose":""}${isPick?" pick":""}">
+function teamRow(name, won, lost, score){
+  return `<div class="team${won?" awin":""}${lost?" lose":""}">
       <span class="fl">${fl(name)}</span><span class="nm">${esc(teamName(name))}</span>
-      ${isPick?`<span class="${pkCls}">${pkTxt}</span>`:""}
-      <button class="favbtn${fav?' on':''}" data-team="${esc(name)}" aria-label="follow">${fav?'★':'☆'}</button>
       ${score!=null?`<span class="sc">${score}</span>`:""}
     </div>`;
 }
@@ -690,7 +683,7 @@ function renderSched(){
   const el=document.getElementById("sched");
   if(!list.length){
     let msg;
-    if(state.group==="FAV") msg = lang==="fa"?"کنار اسم تیم‌ها ☆ رو بزن تا دنبالشون کنی.":"Tap ☆ next to a team to follow it.";
+    if(state.group==="FAV") msg = lang==="fa"?"توی تب «جدول‌ها» کنار تیم‌ها ☆ رو بزن تا دنبالشون کنی.":"Star teams in the Tables tab to follow them.";
     else msg = state.filter==="past"?t('emptyPast'):state.filter==="next"?t('emptyNext'):t('emptyNone');
     el.innerHTML=`<div class="empty">${msg}</div>`;return;
   }
@@ -713,7 +706,6 @@ function renderSched(){
       const cls=live?" live":(isNext?" next":"");
       let hs=null,as=null,hWon=false,aWon=false,hLost=false,aLost=false;
       if(a&&a.hs!=null){hs=a.hs;as=a.as;if(hs>as){hWon=true;aLost=true;}else if(as>hs){aWon=true;hLost=true;}}
-      const hPick=m[6]===m[3],aPick=m[6]===m[4];
       let metaMid;
       if(live){const min=a&&a.elapsed?`${a.elapsed}'`:t('live');metaMid=`<span class="st live pulse">● ${min}</span>`;}
       else if(f.s==="past"&&hs!=null) metaMid=`<span class="st ft">${t('fullTime')}</span>`;
@@ -726,9 +718,9 @@ function renderSched(){
       html+=`<div class="match${cls}${hasFav?" hasfav":""}${isOpen&&showGoals?" open":""}" data-i="${x.i}"${a&&a.id?` data-fid="${a.id}"`:""}>
         <div class="match-top">
           <div class="teams">
-            ${teamRow(m[3],hPick,f.s,hs,hWon,hLost,hPick&&hWon)}
+            ${teamRow(m[3],hWon,hLost,hs)}
             <div class="vs">${t('vs')}</div>
-            ${teamRow(m[4],aPick,f.s,as,aWon,aLost,aPick&&aWon)}
+            ${teamRow(m[4],aWon,aLost,as)}
           </div>
           <div class="meta"><span class="gp">${grpTag}</span>${metaMid}<span class="vn">${esc(m[5])}</span></div>
           <div class="cardacts">
@@ -783,7 +775,7 @@ function renderTables(){
     rows.forEach((r,i)=>{
       const cls=i<2?"qual":(i===2?"third":"");
       const gd=r.gf-r.ga;
-      html+=`<tr class="${cls}"><td class="pos">${i+1}</td><td class="tn"><span class="fl">${fl(r.t)}</span>${esc(teamName(r.t))}</td>
+      html+=`<tr class="${cls}"><td class="pos">${i+1}</td><td class="tn"><button class="favbtn${isFavTeam(r.t)?' on':''}" data-team="${esc(r.t)}" aria-label="follow">${isFavTeam(r.t)?'★':'☆'}</button><span class="fl">${fl(r.t)}</span>${esc(teamName(r.t))}</td>
         <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td><td>${gd>0?"+":""}${gd}</td><td class="pts">${r.pts}</td></tr>`;
     });
     html+=`</table></div>`;
@@ -960,13 +952,12 @@ function applyI18n(){
   root.lang=lang; root.dir=lang==="fa"?"rtl":"ltr";
   document.querySelectorAll(".tab").forEach(el=>{ el.textContent=t("tab_"+el.dataset.view); });
   document.querySelectorAll("#seg .seg").forEach(el=>{ el.querySelector(".lab").textContent=t("seg_"+el.dataset.f); });
-  document.querySelector("#predT .lab").textContent=t('picks');
   document.getElementById("q").placeholder=t('search');
   document.getElementById("tzLabel").textContent=t('tzLabel');
   document.getElementById("subLine").textContent=t('sub');
   document.getElementById("hosts").innerHTML=`<span>🇨🇦 ${esc(teamName('Canada'))}</span><span>🇲🇽 ${esc(teamName('Mexico'))}</span><span>🇺🇸 ${esc(teamName('USA'))}</span>`;
   document.getElementById("footer").textContent=t('footer');
-  document.getElementById("langBtn").textContent = lang==="fa" ? "EN" : "فارسی";
+  document.getElementById("langBtn").textContent = lang==="fa" ? "En" : "Fa";
 }
 
 // ===================== EVENTS =====================
@@ -981,11 +972,11 @@ document.getElementById("chips").addEventListener("click",e=>{
   const c=e.target.closest(".chip");if(!c)return;state.group=c.dataset.g;renderChips();renderSched();
 });
 document.getElementById("q").addEventListener("input",e=>{state.q=e.target.value;renderSched();});
-document.getElementById("predT").addEventListener("click",function(){
-  const on=!document.body.classList.contains("show-pred");
-  document.body.classList.toggle("show-pred",on);this.classList.toggle("on",on);
-});
 document.getElementById("refreshBtn").addEventListener("click",loadScores);
+// favourite a team from the Tables tab
+document.getElementById("tablesView").addEventListener("click",e=>{
+  const b=e.target.closest(".favbtn"); if(b) toggleFav(b.dataset.team);
+});
 // timezone selector (default auto-detects the device timezone)
 (function initTZ(){
   const sel=document.getElementById("tzSel");
@@ -993,7 +984,7 @@ document.getElementById("refreshBtn").addEventListener("click",loadScores);
     ["America/Chicago","Central"],["America/New_York","Eastern"],["America/Mexico_City","Mexico City"],
     ["America/Toronto","Toronto"],["Europe/London","UK"],["Europe/Paris","Central Europe"],
     ["Asia/Tehran","Tehran"],["Asia/Dubai","Dubai"],["Asia/Tokyo","Tokyo"],["UTC","UTC"]];
-  sel.innerHTML=opts.map(o=>`<option value="${o[0]}">${o[1]}${o[0]==="auto"?" ("+LOCAL_TZ.split("/").pop().replace(/_/g," ")+")":""}</option>`).join("");
+  sel.innerHTML=opts.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("");
   sel.value=chosenTZ;
   document.getElementById("tzAbbr").textContent=tzAbbr();
   sel.addEventListener("change",()=>{
@@ -1012,8 +1003,6 @@ document.getElementById("langBtn").addEventListener("click",()=>{
 });
 // tap a match → favourite star / calendar / share / toggle scorers
 document.getElementById("sched").addEventListener("click",async e=>{
-  const favb=e.target.closest(".favbtn");
-  if(favb){ e.stopPropagation(); toggleFav(favb.dataset.team); return; }
   const act=e.target.closest(".iconbtn");
   if(act){ e.stopPropagation(); const ai=+act.dataset.i; act.dataset.act==="cal"?downloadICS(ai):shareCard(ai); return; }
   const card=e.target.closest(".match");if(!card)return;
