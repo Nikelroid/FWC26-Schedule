@@ -45,7 +45,11 @@
   .tzrow select{background:var(--card);color:var(--txt);border:1px solid var(--card-brd);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;outline:none;-webkit-appearance:none;appearance:none}
   .tzrow .abbr{color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums}
 
-  .sticky{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(10,14,26,.96),rgba(10,14,26,.86));
+  /* fixed dark strip behind the status bar (only visible behind the notch) */
+  .safetop{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:#0a0e1a;z-index:35;pointer-events:none}
+  /* sticky reserves the notch inset only while pinned: transparent inset padding + negative margin cancels the gap when unscrolled */
+  .sticky{position:sticky;top:0;z-index:30;margin-top:calc(-1 * env(safe-area-inset-top));padding-top:env(safe-area-inset-top);background:transparent;border:none;pointer-events:none}
+  .sticky-inner{pointer-events:auto;background:linear-gradient(180deg,rgba(10,14,26,.96),rgba(10,14,26,.86));
     backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--card-brd);padding:8px 0 9px}
   .tabs{display:flex;gap:5px;justify-content:center;padding:0 10px}
   .tab{flex:1;text-align:center;padding:9px 4px;border-radius:11px;font-weight:700;font-size:12.5px;
@@ -204,6 +208,7 @@
 </style>
 </head>
 <body class="show-pred v-sched">
+<div class="safetop"></div>
 <header class="hero">
   <button class="langbtn" id="langBtn">Fa</button>
   <img class="brand-img" src="icon.png" alt="World Cup 2026" onerror="this.style.display='none';document.getElementById('brandFb').style.display='inline-block';" />
@@ -216,11 +221,13 @@
 </header>
 
 <div class="sticky">
-  <div class="tabs">
-    <div class="tab active" data-view="sched"></div>
-    <div class="tab" data-view="tables"></div>
-    <div class="tab" data-view="bracket"></div>
-    <div class="tab" data-view="picks"></div>
+  <div class="sticky-inner">
+    <div class="tabs">
+      <div class="tab active" data-view="sched"></div>
+      <div class="tab" data-view="tables"></div>
+      <div class="tab" data-view="bracket"></div>
+      <div class="tab" data-view="picks"></div>
+    </div>
   </div>
 </div>
 
