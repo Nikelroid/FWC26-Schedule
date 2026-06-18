@@ -423,7 +423,7 @@ const I18N={
    sub:"Live scores · goals · tables · bracket",
    tzLabel:"🕒 Time zone",allGroups:"All groups",group:"Group",mine:"⭐ Mine",
    today:"TODAY",matches:"matches",match:"match",fullTime:"FULL TIME",ended:"ENDED",live:"LIVE",vs:"vs",
-   pick:"PICK",goalsHint:"Tap to load goal scorers…",noGoals:"No goals yet.",
+   pick:"PICK",goalsHint:"Tap to load goal scorers…",noGoals:"No goals yet.",goalsNA:"Goal scorers not in the free data plan",
    addCal:"Add to calendar",share:"Share",
    thTeam:"Team",goalsTitle:"⚽ Goals scored by team",goalsDesc:"Updates live from results. Top scoring teams so far.",
    noGoalsChart:"No goals yet — the chart fills in as matches are played. ⚽",
@@ -445,7 +445,7 @@ const I18N={
    sub:"نتایج زنده · گل‌ها · جدول‌ها · مرحلهٔ حذفی",
    tzLabel:"🕒 منطقهٔ زمانی",allGroups:"همهٔ گروه‌ها",group:"گروه",mine:"⭐ موردعلاقه",
    today:"امروز",matches:"بازی",match:"بازی",fullTime:"پایان بازی",ended:"تمام شد",live:"زنده",vs:"–",
-   pick:"انتخاب",goalsHint:"برای دیدن گل‌زن‌ها بزنید…",noGoals:"هنوز گلی نشده.",
+   pick:"انتخاب",goalsHint:"برای دیدن گل‌زن‌ها بزنید…",noGoals:"هنوز گلی نشده.",goalsNA:"اسامی گل‌زن‌ها در پلن رایگان نیست",
    addCal:"افزودن به تقویم",share:"اشتراک",
    thTeam:"تیم",goalsTitle:"⚽ گل‌های زده‌شده هر تیم",goalsDesc:"زنده از روی نتایج. بیشترین گل‌زن‌ها تا الان.",
    noGoalsChart:"هنوز گلی نشده — با شروع بازی‌ها پر می‌شود. ⚽",
@@ -656,8 +656,9 @@ function renderChips(){
 function goalsHtml(m, a){
   if(!a||!a.id) return "";
   const evs=eventsMap[a.id];
+  const total=(a.hs||0)+(a.as||0);
   if(evs===undefined) return `<div class="goals"><div class="hint">${t('goalsHint')}</div></div>`;
-  if(!evs.length) return `<div class="goals"><div class="hint">${t('noGoals')}</div></div>`;
+  if(!evs.length) return `<div class="goals"><div class="hint">${total>0?t('goalsNA'):t('noGoals')}</div></div>`;
   const rows=evs.map(g=>{
     const homeSide=norm(g.team)===norm(m[3]);
     const tag=/Penalty/i.test(g.detail)?" (P)":/Own/i.test(g.detail)?" (OG)":"";
