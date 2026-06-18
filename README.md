@@ -12,26 +12,52 @@ Tabs:
 
 Everything lives in one file: **`index.html`**. The only external bits are the Chart.js CDN and your live-scores API.
 
-## Live scores (API-Football via a free Cloudflare proxy)
+## Live scores — easiest: GitHub Actions (no extra account)
 
-For real goal-by-goal live scores, the page uses **API-Football**. Its key must stay secret, so
-`worker.js` is a tiny **Cloudflare Worker** that holds the key, adds CORS, and caches responses for
-60s (so all visitors share one upstream request and you stay under the free quota).
+The included workflow `.github/workflows/scores.yml` keeps `scores.json` in the repo up to date, and
+the page reads that file directly (same-origin — no proxy, no exposed token). `PROXY_URL` stays empty.
+
+**Designed to barely touch the API:**
+
+- The schedule only wakes during match hours (UTC 16:00–07:00), in June & July.
+- Each run (`scripts/update-scores.mjs`) calls football-data.org **only** when a match is live, just
+  kicked off, awaiting its final result, or starting within 15 minutes. Finished matches are cached
+  in `scores.json` and never re-fetched.
+- A commit (and Pages rebuild) happens only when a score actually changes.
+- Need a manual refresh? Actions tab → **Update scores** → **Run workflow** → tick **force**.
+
+Setup (one time):
+
+1. Get a free token: https://www.football-data.org/client/register
+2. In your repo: **Settings → Secrets and variables → Actions → New repository secret**
+   → Name `FD_TOKEN`, Value = your token.
+3. **Settings → Actions → General → Workflow permissions** → select **Read and write permissions**.
+4. Push these files, then go to the **Actions** tab → **Update scores** → **Run workflow** once to
+   create `scores.json` immediately (after that it runs every ~10 minutes on its own).
+
+Updates land within ~10 minutes — great for results and near-live scores. (Goal-scorer detail isn't
+included in this mode; scores, live status, minute and full-time results are.)
+
+## Live scores — alternative: real-time via a proxy (Cloudflare / Val.town)
+
+Live scores come from **football-data.org** (free tier, covers the FIFA World Cup, 10 requests/min).
+Its token must stay secret and it doesn't send CORS headers, so `worker.js` is a tiny **Cloudflare
+Worker** that holds the token, adds CORS, and caches responses ~45s (all visitors share one upstream
+request, so you stay well within the free limit).
 
 One-time setup (~5 min) — full steps are in the comments at the top of `worker.js`:
 
-1. Get a free key at https://www.api-football.com
+1. Get a free token: https://www.football-data.org/client/register
 2. Create a free Cloudflare Worker, paste `worker.js`, deploy
-3. Add a **secret** variable `API_KEY` = your key
+3. Add a **secret** variable `API_KEY` = your token
 4. Copy the Worker URL and set `PROXY_URL` near the top of `index.html`
 
-**Until you set `PROXY_URL`, the page automatically falls back to the free, keyless
-[TheSportsDB](https://www.thesportsdb.com)** — so it works the moment you deploy, just without
-in-play goal detail. If the proxy is ever unreachable, it falls back too.
+Once `PROXY_URL` is set, results, live status and (where the plan allows) goal scorers update
+automatically. Polling is adaptive — frequent only when a match is live or about to start, otherwise
+every 10 minutes — so it never burns through the rate limit.
 
-> Note: API-Football's free tier is 100 requests/day. The Worker's 60s cache makes that go a long
-> way for a personal page, but for a heavy match day you may want a cheap paid tier — no page
-> changes needed, just a higher-limit key on the same Worker.
+> Until `PROXY_URL` is set, the page shows the full schedule/timezone/predictions but cannot show
+> live scores (the old free TheSportsDB feed has been locked behind a paid key).
 
 ## Deploy to GitHub Pages (private repo)
 

@@ -1,54 +1,44 @@
 /**
- * Cloudflare Worker — API-Football proxy for the World Cup 2026 page.
+ * Cloudflare Worker — football-data.org proxy for the World Cup 2026 page.
  *
- * Why: API-Football needs a secret key sent in a header. A static GitHub Pages
- * site can't hide that key. This Worker holds the key, adds CORS so your page
- * can call it, and CACHES every response for 60s so all your visitors share a
- * single upstream request — which keeps you well under the free-tier quota.
+ * Why: football-data.org needs a secret token in a header (X-Auth-Token) and
+ * doesn't send CORS headers, so a static GitHub Pages site can't call it directly.
+ * This Worker holds the token, adds CORS, and caches responses (~45s) so all your
+ * visitors share one upstream request and you stay comfortably inside the free
+ * tier's 10 requests/minute.
  *
- * One-time setup (≈5 min):
- *   1. Create a free API-Football account → https://www.api-football.com  (copy your API key)
- *   2. Create a free Cloudflare account → https://dash.cloudflare.com
+ * One-time setup (~5 min):
+ *   1. Get a FREE token: https://www.football-data.org/client/register  (copy the API token from the email)
+ *   2. Create a free Cloudflare account: https://dash.cloudflare.com
  *   3. Workers & Pages → Create → Worker → paste this file → Deploy
- *   4. Worker → Settings → Variables → add a SECRET named  API_KEY  = your key
+ *   4. Worker → Settings → Variables and Secrets → add a SECRET named  API_KEY  = your token
  *   5. Copy the Worker URL (e.g. https://wc2026.yourname.workers.dev)
  *      and paste it into index.html as PROXY_URL.
  *
- * That's it — the key never appears in the public page.
+ * The token never appears in the public page.
  */
 
-const UPSTREAM = "https://v3.football.api-sports.io";
-const ALLOW_PATHS = ["/fixtures", "/fixtures/events", "/standings"];
-const CACHE_SECONDS = 60;
+const UPSTREAM = "https://api.football-data.org";
+const ALLOW_PREFIX = "/v4/";   // only football-data v4 endpoints
+const CACHE_SECONDS = 45;
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // CORS preflight
     if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
+    if (!url.pathname.startsWith(ALLOW_PREFIX)) return withCors(json({ error: "path not allowed" }, 403));
+    if (!env.API_KEY) return withCors(json({ error: "API_KEY secret not set on Worker" }, 500));
 
-    // Only allow the endpoints the page actually uses
-    if (!ALLOW_PATHS.includes(url.pathname)) {
-      return withCors(new Response(JSON.stringify({ error: "path not allowed" }), { status: 403 }));
-    }
-    if (!env.API_KEY) {
-      return withCors(new Response(JSON.stringify({ error: "API_KEY secret not set on Worker" }), { status: 500 }));
-    }
-
-    // Serve from edge cache when possible (dedupes visitors, protects quota)
     const cache = caches.default;
     const cacheKey = new Request(url.toString(), { method: "GET" });
-    let cached = await cache.match(cacheKey);
-    if (cached) return withCors(cached);
+    const hit = await cache.match(cacheKey);
+    if (hit) return withCors(hit);
 
-    // Fetch upstream with the secret key
-    const upstreamUrl = UPSTREAM + url.pathname + url.search;
-    const upstream = await fetch(upstreamUrl, {
-      headers: { "x-apisports-key": env.API_KEY },
+    const upstream = await fetch(UPSTREAM + url.pathname + url.search, {
+      headers: { "X-Auth-Token": env.API_KEY },
     });
     const body = await upstream.text();
-
     const resp = new Response(body, {
       status: upstream.status,
       headers: {
@@ -56,11 +46,14 @@ export default {
         "Cache-Control": `public, max-age=${CACHE_SECONDS}`,
       },
     });
-    ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+    if (upstream.ok) ctx.waitUntil(cache.put(cacheKey, resp.clone()));
     return withCors(resp);
   },
 };
 
+function json(obj, status) {
+  return new Response(JSON.stringify(obj), { status: status || 200, headers: { "content-type": "application/json" } });
+}
 function withCors(resp) {
   const h = new Headers(resp.headers);
   h.set("Access-Control-Allow-Origin", "*");

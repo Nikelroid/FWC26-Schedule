@@ -1,0 +1,51 @@
+name: Update scores
+
+# Pulls World Cup scores from football-data.org into scores.json, which the page reads directly.
+# The token lives in the repo secret FD_TOKEN — never in the code or the page.
+#
+# Minimal usage by design:
+#   • The schedule only wakes during match hours (UTC), in June & July.
+#   • The script only calls the API when a match is live, just kicked off, awaiting a
+#     final result, or starting within 15 min. Finished results are cached and never re-fetched.
+#   • A commit (and Pages rebuild) happens only when scores.json actually changes.
+
+on:
+  schedule:
+    - cron: "*/15 0-7,16-23 * 6,7 *"   # every 15 min during match hours (UTC), Jun & Jul
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force an API refresh even if no match is live"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-scores
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update scores (calls API only when needed)
+        env:
+          FD_TOKEN: ${{ secrets.FD_TOKEN }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node scripts/update-scores.mjs
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- scores.json; then
+            echo "No score changes — no commit."
+          else
+            git config user.name "scores-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add scores.json
+            git commit -m "Update scores [skip ci]"
+            git push
+          fi

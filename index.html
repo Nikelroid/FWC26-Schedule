@@ -229,9 +229,9 @@
    CONFIG — set PROXY_URL to your Cloudflare Worker URL.
    Leave it as "" to run on the free TheSportsDB fallback.
    ============================================================ */
-const PROXY_URL = "";                 // e.g. "https://wc2026.yourname.workers.dev"
-const AF_LEAGUE = 1, AF_SEASON = 2026; // API-Football: league 1 = World Cup
-const TSD_KEY = "123", TSD_LEAGUE = "4429", TSD_SEASON = "2026";
+const PROXY_URL = "";                   // e.g. "https://wc2026.yourname.workers.dev"
+const FD_COMP = "WC", FD_SEASON = 2026; // football-data.org: WC = FIFA World Cup
+const TSD_KEY = "123", TSD_LEAGUE = "4429", TSD_SEASON = "2026"; // legacy fallback (free tier now limited)
 
 // ===================== STATIC DATA =====================
 const FLAG = {
@@ -407,55 +407,81 @@ function mapStatus(short){
   return "NS";
 }
 function pushRec(map, r){ const k=pairKey(r.home,r.away); (map[k]=map[k]||[]).push(r); }
+// fetch JSON with a hard timeout so a dead/slow feed never hangs the UI
+async function fetchJSON(url){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),12000);
+  try{ const r=await fetch(url,{cache:"no-store",signal:c.signal}); if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
+  finally{ clearTimeout(t); }
+}
 
-async function loadAF(){
-  const base=PROXY_URL.replace(/\/$/,"");
-  const url=`${base}/fixtures?league=${AF_LEAGUE}&season=${AF_SEASON}`;
-  const res=await fetch(url,{cache:"no-store"});
-  if(!res.ok) throw new Error("proxy HTTP "+res.status);
-  const data=await res.json();
-  const arr=(data&&data.response)||[];
-  if(!arr.length) throw new Error("no fixtures from API-Football");
-  const map={};
-  const liveIds=[];
+function fdStatus(s){ s=(s||"").toUpperCase();
+  if(s==="FINISHED") return "FT";
+  if(s==="IN_PLAY"||s==="PAUSED"||s==="SUSPENDED") return "LIVE";
+  return "NS"; }
+function fdStage(s){ s=(s||"").toUpperCase();
+  if(s==="LAST_32") return "Round of 32";
+  if(s==="LAST_16") return "Round of 16";
+  if(s==="QUARTER_FINALS"||s==="QUARTER_FINAL") return "Quarter-finals";
+  if(s==="SEMI_FINALS"||s==="SEMI_FINAL") return "Semi-finals";
+  if(s==="THIRD_PLACE"||s==="THIRD_PLACE_FINAL") return "Third place";
+  if(s==="FINAL") return "Final";
+  return "Group"; }
+
+// turn a football-data /matches payload into apiMap; returns ids of live matches
+function ingestFD(data){
+  const arr=(data&&data.matches)||[];
+  if(!arr.length) throw new Error("no matches in feed");
+  const map={}, liveIds=[];
   arr.forEach(o=>{
-    const st=mapStatus(o.fixture&&o.fixture.status&&o.fixture.status.short);
+    const ft=(o.score&&o.score.fullTime)||{};
+    const st=fdStatus(o.status);
     const rec={
-      home:o.teams.home.name, away:o.teams.away.name,
-      hs:o.goals.home==null?null:+o.goals.home, as:o.goals.away==null?null:+o.goals.away,
-      st, elapsed:(o.fixture.status&&o.fixture.status.elapsed)||null,
-      ep:Date.parse(o.fixture.date), round:(o.league&&o.league.round)||"", id:o.fixture.id
+      home:o.homeTeam&&o.homeTeam.name, away:o.awayTeam&&o.awayTeam.name,
+      hs:ft.home==null?null:+ft.home, as:ft.away==null?null:+ft.away,
+      st, elapsed:o.minute||null,
+      ep:Date.parse(o.utcDate), round:fdStage(o.stage), id:o.id
     };
-    pushRec(map,rec);
-    if(st==="LIVE") liveIds.push(o.fixture.id);
+    if(rec.home && rec.away){ pushRec(map,rec); if(st==="LIVE") liveIds.push(o.id); }
   });
-  apiMap=map; usingAF=true; apiLoaded=true;
-  // pull goal events for live matches (few at a time)
-  await Promise.all(liveIds.slice(0,10).map(id=>loadEvents(id).catch(()=>{})));
-  setApiStatus(true,"API-Football");
+  apiMap=map; apiLoaded=true;
+  return liveIds;
+}
+
+// Path A: live proxy (Cloudflare / Val.town) — also fetches goal scorers
+async function loadFD(){
+  const base=PROXY_URL.replace(/\/$/,"");
+  const data=await fetchJSON(`${base}/v4/competitions/${FD_COMP}/matches?season=${FD_SEASON}`);
+  const liveIds=ingestFD(data); usingAF=true;
+  await Promise.all(liveIds.slice(0,6).map(id=>loadEvents(id).catch(()=>{})));
+  setApiStatus(true,"football-data.org");
   renderAll();
 }
 
+// Path B: GitHub Action writes scores.json into the repo; the page reads it same-origin (no proxy, no token)
+async function loadLocal(){
+  const data=await fetchJSON("scores.json?ts="+Math.floor(Date.now()/60000));
+  ingestFD(data); usingAF=false;   // scorer details aren't included in this mode
+  setApiStatus(true,"auto-updated");
+  renderAll();
+}
+
+// goal scorers for one match (best-effort; may be limited on the free plan)
 async function loadEvents(fixtureId){
   if(!usingAF || !PROXY_URL) return;
   const base=PROXY_URL.replace(/\/$/,"");
-  const res=await fetch(`${base}/fixtures/events?fixture=${fixtureId}`,{cache:"no-store"});
-  if(!res.ok) throw new Error("events HTTP "+res.status);
-  const data=await res.json();
-  const evs=(data&&data.response)||[];
-  eventsMap[fixtureId]=evs.filter(e=>e.type==="Goal").map(e=>({
-    team:e.team&&e.team.name, player:(e.player&&e.player.name)||"Goal",
-    minute:(e.time&&e.time.elapsed)||0, extra:(e.time&&e.time.extra)||0,
-    detail:e.detail||""
+  const data=await fetchJSON(`${base}/v4/matches/${fixtureId}`);
+  const goals=(data&&(data.goals||(data.match&&data.match.goals)))||[];
+  eventsMap[fixtureId]=goals.map(g=>({
+    team:g.team&&g.team.name, player:(g.scorer&&g.scorer.name)||"Goal",
+    minute:g.minute||0, extra:g.injuryTime||0, detail:g.type||""
   })).sort((a,b)=>(a.minute+a.extra)-(b.minute+b.extra));
 }
 
 async function loadTSD(){
   const url=`https://www.thesportsdb.com/api/v1/json/${TSD_KEY}/eventsseason.php?id=${TSD_LEAGUE}&s=${TSD_SEASON}`;
-  const res=await fetch(url,{cache:"no-store"});
-  if(!res.ok) throw new Error("TSD HTTP "+res.status);
-  const data=await res.json();
+  const data=await fetchJSON(url);
   const evs=(data&&data.events)||[];
+  if(!evs.length) throw new Error("TheSportsDB free feed returned no data");
   const map={};
   evs.forEach(ev=>{
     pushRec(map,{
@@ -472,9 +498,11 @@ async function loadTSD(){
 }
 
 async function loadScores(){
-  try{ PROXY_URL ? await loadAF() : await loadTSD(); }
-  catch(e){
-    if(PROXY_URL){ try{ await loadTSD(); setApiStatus(true,"TheSportsDB (proxy unavailable)"); return; }catch(_){} }
+  try{
+    if(PROXY_URL) await loadFD();              // live proxy if configured
+    else { try{ await loadLocal(); }           // else the GitHub Action's scores.json
+           catch(_){ await loadTSD(); } }       // last-ditch legacy fallback
+  }catch(e){
     apiLoaded=true; setApiStatus(false,e.message); renderAll();
   }
 }
@@ -483,7 +511,7 @@ function setApiStatus(ok,src){
   bar.classList.toggle("err",!ok);
   if(ok){
     el.textContent=`Live · ${src} · updated ${timeInTZ(Date.now())} ${tzAbbr()}`;
-  } else el.textContent="Scores offline — showing schedule";
+  } else el.textContent = PROXY_URL ? "Scores unavailable — check proxy / API key" : "Scores load automatically — first update may take a few minutes";
 }
 
 function lookupApi(m){
@@ -803,10 +831,20 @@ document.getElementById("sched").addEventListener("click",async e=>{
   renderSched();
 });
 
+// adaptive polling: refresh often only when a match is live or about to start,
+// otherwise back off to every 10 min — keeps a free API key well within quota.
+let pollTimer=null;
+function nextDelay(){
+  const now=Date.now(); let live=false, soon=false;
+  M.forEach(m=>{ const f=fixtureState(m,now); if(f.s==="live") live=true;
+    const ep=ptEpoch(m[0],m[1]); if(ep>now && ep-now<30*60000) soon=true; });
+  return (live||soon)?60000:600000;
+}
+function scheduleNext(){ clearTimeout(pollTimer); pollTimer=setTimeout(async()=>{ await loadScores(); scheduleNext(); }, nextDelay()); }
+
 // init
 renderChips();renderSched();renderPred();
-loadScores();
-setInterval(loadScores,60000);                                   // refresh scores + live events
+(async()=>{ await loadScores(); scheduleNext(); })();
 setInterval(()=>{ if(state.view==="sched") renderSched(); },30000); // tick live/next labels
 </script>
 </body>
