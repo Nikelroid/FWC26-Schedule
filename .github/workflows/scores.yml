@@ -46,12 +46,13 @@ jobs:
 
       - name: Commit if changed
         run: |
-          if git diff --quiet -- scores.json; then
+          git add scores.json
+          # --cached so a brand-new (untracked) scores.json is detected too
+          if git diff --cached --quiet; then
             echo "No score changes — no commit."
           else
             git config user.name "scores-bot"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add scores.json
             git commit -m "Update scores [skip ci]"
             git push
           fi
