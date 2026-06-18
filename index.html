@@ -84,7 +84,7 @@
   .day-h .dnum{color:var(--gold);font-variant-numeric:tabular-nums}
   .day-h.today .badge{background:var(--green);color:#04210f;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
 
-  .match{background:var(--card);border:1px solid var(--card-brd);border-radius:15px;padding:12px 14px;margin-bottom:9px;box-shadow:var(--shadow);position:relative;overflow:hidden;cursor:pointer}
+  .match{background:var(--card);border:1px solid var(--card-brd);border-radius:15px;padding:12px 14px;margin-bottom:9px;box-shadow:var(--shadow);position:relative;overflow:hidden}
   .match::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent}
   .match.live::before{background:var(--red)}
   .match.next::before{background:var(--green)}
@@ -551,8 +551,7 @@ function ingestFD(data){
 async function loadFD(){
   const base=PROXY_URL.replace(/\/$/,"");
   const data=await fetchJSON(`${base}/v4/competitions/${FD_COMP}/matches?season=${FD_SEASON}`);
-  const liveIds=ingestFD(data); usingAF=true;
-  await Promise.all(liveIds.slice(0,6).map(id=>loadEvents(id).catch(()=>{})));
+  ingestFD(data); usingAF=true;
   setApiStatus(true,"football-data.org");
   renderAll();
 }
@@ -560,21 +559,9 @@ async function loadFD(){
 // Path B: GitHub Action writes scores.json into the repo; the page reads it same-origin (no proxy, no token)
 async function loadLocal(){
   const data=await fetchJSON("scores.json?ts="+Math.floor(Date.now()/60000));
-  ingestFD(data); usingAF=false;   // scorer details aren't included in this mode
+  ingestFD(data); usingAF=false;
   setApiStatus(true,"auto-updated");
   renderAll();
-}
-
-// goal scorers for one match (best-effort; may be limited on the free plan)
-async function loadEvents(fixtureId){
-  if(!usingAF || !PROXY_URL) return;
-  const base=PROXY_URL.replace(/\/$/,"");
-  const data=await fetchJSON(`${base}/v4/matches/${fixtureId}`);
-  const goals=(data&&(data.goals||(data.match&&data.match.goals)))||[];
-  eventsMap[fixtureId]=goals.map(g=>({
-    team:g.team&&g.team.name, player:(g.scorer&&g.scorer.name)||"Goal",
-    minute:g.minute||0, extra:g.injuryTime||0, detail:g.type||""
-  })).sort((a,b)=>(a.minute+a.extra)-(b.minute+b.extra));
 }
 
 async function loadTSD(){
@@ -653,21 +640,6 @@ function renderChips(){
   }).join("");
 }
 
-function goalsHtml(m, a){
-  if(!a||!a.id) return "";
-  const evs=eventsMap[a.id];
-  const total=(a.hs||0)+(a.as||0);
-  if(evs===undefined) return `<div class="goals"><div class="hint">${t('goalsHint')}</div></div>`;
-  if(!evs.length) return `<div class="goals"><div class="hint">${total>0?t('goalsNA'):t('noGoals')}</div></div>`;
-  const rows=evs.map(g=>{
-    const homeSide=norm(g.team)===norm(m[3]);
-    const tag=/Penalty/i.test(g.detail)?" (P)":/Own/i.test(g.detail)?" (OG)":"";
-    const mn=g.minute+(g.extra?"+"+g.extra:"")+"'";
-    return `<div class="goal ${homeSide?'home':'away'}"><span class="mn">${mn}</span><span class="bl">⚽</span><span>${esc(g.player)}${tag}</span></div>`;
-  }).join("");
-  return `<div class="goals">${rows}</div>`;
-}
-
 function teamRow(name, won, lost, score){
   return `<div class="team${won?" awin":""}${lost?" lose":""}">
       <span class="fl">${fl(name)}</span><span class="nm">${esc(teamName(name))}</span>
@@ -720,11 +692,9 @@ function renderSched(){
       else if(f.s==="past"&&hs!=null) metaMid=`<span class="st ft">${t('fullTime')}</span>`;
       else if(f.s==="past") metaMid=`<span class="st ft">${t('ended')}</span>`;
       else metaMid=`<span class="tm">${timeInTZ(ep)}</span>`;
-      const showGoals=(live||f.s==="past")&&hs!=null&&usingAF;
-      const isOpen=openCards[x.i]||live; // live auto-open
       const hasFav=favSet.has(m[3])||favSet.has(m[4]);
       const grpTag=(lang==="fa"?"گ":"GRP")+" "+m[2];
-      html+=`<div class="match${cls}${hasFav?" hasfav":""}${isOpen&&showGoals?" open":""}" data-i="${x.i}"${a&&a.id?` data-fid="${a.id}"`:""}>
+      html+=`<div class="match${cls}${hasFav?" hasfav":""}" data-i="${x.i}">
         <div class="match-top">
           <div class="teams">
             ${teamRow(m[3],hWon,hLost,hs)}
@@ -737,7 +707,6 @@ function renderSched(){
             <button class="iconbtn" data-act="share" data-i="${x.i}" aria-label="${t('share')}" title="${t('share')}">📤</button>
           </div>
         </div>
-        ${showGoals?goalsHtml(m,a):""}
       </div>`;
     });
     html+="</div>";
@@ -1010,17 +979,10 @@ document.getElementById("langBtn").addEventListener("click",()=>{
   try{ localStorage.setItem("wc_lang",lang); }catch(e){}
   applyI18n(); renderChips(); renderAll(); renderPred(); setApiStatus(apiLoaded);
 });
-// tap a match → favourite star / calendar / share / toggle scorers
-document.getElementById("sched").addEventListener("click",async e=>{
+// calendar / share buttons on each card
+document.getElementById("sched").addEventListener("click",e=>{
   const act=e.target.closest(".iconbtn");
-  if(act){ e.stopPropagation(); const ai=+act.dataset.i; act.dataset.act==="cal"?downloadICS(ai):shareCard(ai); return; }
-  const card=e.target.closest(".match");if(!card)return;
-  const i=+card.dataset.i, fid=card.dataset.fid;
-  openCards[i]=!card.classList.contains("open");
-  if(openCards[i] && fid && usingAF && eventsMap[fid]===undefined){
-    try{ await loadEvents(fid); }catch(_){}
-  }
-  renderSched();
+  if(act){ const ai=+act.dataset.i; act.dataset.act==="cal"?downloadICS(ai):shareCard(ai); }
 });
 
 // adaptive polling: refresh often only when a match is live or about to start,
