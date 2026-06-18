@@ -10,7 +10,6 @@
 import fs from "node:fs";
 
 const FILE = "scores.json";
-const URL = "https://api.football-data.org/v4/competitions/WC/matches?season=2026";
 const LIVE_AFTER  = 3 * 60 * 60 * 1000; // a match may still be live up to 3h after kickoff (ET + pens)
 const SOON_BEFORE = 15 * 60 * 1000;     // refresh when a match starts within 15 min
 const FORCE = process.env.FORCE === "true";
@@ -41,10 +40,30 @@ if (!needRefresh){
 const TOKEN = process.env.FD_TOKEN;
 if (!TOKEN){ console.error("FD_TOKEN secret is not set."); process.exit(1); }
 
-const res = await fetch(URL, { headers: { "X-Auth-Token": TOKEN } });
-if (!res.ok){ console.error("football-data API error:", res.status, await res.text()); process.exit(1); }
-const fresh = await res.json();
-if (!Array.isArray(fresh.matches)){ console.error("Unexpected payload."); process.exit(1); }
+// Try with the season filter first, then without (free tier often rejects ?season=).
+async function fetchMatches(){
+  const urls = [
+    "https://api.football-data.org/v4/competitions/WC/matches?season=2026",
+    "https://api.football-data.org/v4/competitions/WC/matches",
+  ];
+  let lastErr = "no attempt";
+  for (const url of urls){
+    let r;
+    try { r = await fetch(url, { headers: { "X-Auth-Token": TOKEN } }); }
+    catch (e){ lastErr = "network error: " + e.message; continue; }
+    if (r.ok){
+      const j = await r.json();
+      if (Array.isArray(j.matches) && j.matches.length){ console.log("OK via", url, "→", j.matches.length, "matches"); return j; }
+      lastErr = `200 OK but no matches (${url})`;
+    } else {
+      lastErr = `${r.status} ${r.statusText} — ${(await r.text()).slice(0,300)} (${url})`;
+      console.error("Attempt failed:", lastErr);
+    }
+  }
+  throw new Error(lastErr);
+}
+
+const fresh = await fetchMatches();
 
 // Merge: once a match is FINISHED, keep the cached record (don't let a later hiccup blank it out).
 const prevById = {};
